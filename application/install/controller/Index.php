@@ -201,16 +201,52 @@ class Index extends Controller
     }
 
     /**
-     * 第二步：环境检测
-     * @return mixed
+     * ============================================================
+     * 【第二步：环境检测】
+     * ============================================================
+     *
+     * URL: /install.php?step=2
+     *
+     * 功能说明:
+     * 检测服务器环境是否满足系统运行要求，包括:
+     * 1. 运行环境 - 操作系统类型、PHP版本
+     * 2. 目录权限 - 关键目录和文件的读写权限
+     * 3. 函数扩展 - 必需的PHP扩展和函数
+     *
+     * 数据流向:
+     * ┌─────────────────────────────────────────────────────────┐
+     * │ step2()                                                 │
+     * │    ↓                                                    │
+     * │ checkNnv()  → $data['env']  环境检测结果               │
+     * │ checkDir()  → $data['dir']  目录权限检测结果           │
+     * │ checkFunc() → $data['func'] 函数扩展检测结果           │
+     * │    ↓                                                    │
+     * │ assign('data', $data) 传递给视图                       │
+     * │    ↓                                                    │
+     * │ fetch('install@index/step2') 渲染模板                  │
+     * │    模板路径: application/install/view/index/step2.html │
+     * └─────────────────────────────────────────────────────────┘
+     *
+     * @return mixed 返回渲染后的 HTML
      */
     private function step2()
     {
+        // 初始化数据数组
         $data = [];
+
+        // 【环境检测】操作系统、PHP版本
         $data['env'] = self::checkNnv();
+
+        // 【目录权限检测】关键目录和文件的读写权限
         $data['dir'] = self::checkDir();
+
+        // 【函数扩展检测】必需的PHP扩展和函数
         $data['func'] = self::checkFunc();
+
+        // 将检测结果传递给视图模板
         $this->assign('data', $data);
+
+        // 渲染并返回 step2.html 模板
         return $this->fetch('install@index/step2');
     }
     
@@ -396,20 +432,43 @@ class Index extends Controller
     }
     
     /**
-     * 环境检测
-     * @return array
+     * ============================================================
+     * 【环境检测方法】检测操作系统和PHP版本
+     * ============================================================
+     *
+     * 检测项目:
+     * 1. 操作系统 - 通过 PHP_OS 常量获取，无版本要求
+     * 2. PHP版本 - 通过 PHP_VERSION 常量获取，要求 >= 5.5
+     *
+     * 返回数据结构:
+     * [
+     *   'os'  => [名称, 最低要求, 推荐配置, 当前值, 状态],
+     *   'php' => [名称, 最低要求, 推荐配置, 当前值, 状态]
+     * ]
+     *
+     * 状态值: 'ok' = 通过, 'no' = 失败
+     * 如果检测失败，会设置 session('install_error', true) 阻止继续安装
+     *
+     * @return array 环境检测结果数组
      */
     private function checkNnv()
     {
+        // 初始化检测项，默认状态为 'ok' (通过)
         $items = [
+            // 操作系统: [名称, 最低要求, 推荐配置, 当前值, 状态]
             'os'      => [lang('install/os'), lang('install/not_limited'), 'Windows/Unix', PHP_OS, 'ok'],
+            // PHP版本: [名称, 最低版本, 推荐配置, 当前版本, 状态]
             'php'     => [lang('install/php'), '5.5', '5.5及以上', PHP_VERSION, 'ok'],
         ];
+
+        // 检测PHP版本是否满足最低要求 (>= 5.5)
         if ($items['php'][3] < $items['php'][1]) {
-            $items['php'][4] = 'no';
-            session('install_error', true);
+            $items['php'][4] = 'no';  // 标记为失败
+            session('install_error', true);  // 设置错误标记，阻止继续安装
         }
+
         /*
+        // GD库检测 (已注释，当前版本不强制要求)
         $tmp = function_exists('gd_info') ? gd_info() : [];
         if (empty($tmp['GD Version'])) {
             $items['gd'][3] = lang('install/not_installed');
@@ -419,15 +478,39 @@ class Index extends Controller
             $items['gd'][3] = $tmp['GD Version'];
         }
         */
+
         return $items;
     }
     
     /**
-     * 目录权限检查
-     * @return array
+     * ============================================================
+     * 【目录权限检测方法】检测关键目录和文件的读写权限
+     * ============================================================
+     *
+     * 检测项目:
+     * 1. ./application/database.php  - 数据库配置文件 (安装时需写入)
+     * 2. ./application/route.php     - 路由配置文件
+     * 3. ./application/extra         - 扩展配置目录 (存储maccms.php等)
+     * 4. ./application/data/backup   - 数据备份目录
+     * 5. ./application/data/update   - 系统更新目录
+     * 6. ./runtime                   - 运行时缓存目录 (日志、缓存、编译模板)
+     * 7. ./upload                    - 上传文件目录
+     *
+     * 返回数据结构:
+     * [
+     *   [类型, 路径, 所需权限, 当前权限, 状态],
+     *   ...
+     * ]
+     *
+     * 类型: 'file' = 文件, 'dir' = 目录
+     * 状态: 'ok' = 权限正常, 'no' = 权限不足
+     *
+     * @return array 目录权限检测结果数组
      */
     private function checkDir()
     {
+        // 初始化检测项列表
+        // 结构: [类型, 路径, 所需权限, 当前权限(默认), 状态(默认ok)]
         $items = [
             ['file', './application/database.php', lang('install/read_and_write'), lang('install/read_and_write'), 'ok'],
             ['file', './application/route.php', lang('install/read_and_write'), lang('install/read_and_write'), 'ok'],
@@ -437,55 +520,98 @@ class Index extends Controller
             ['dir', './runtime', lang('install/read_and_write'), lang('install/read_and_write'), 'ok'],
             ['dir', './upload', lang('install/read_and_write'), lang('install/read_and_write'), 'ok'],
         ];
+
+        // 遍历检测每个目录/文件的权限
         foreach ($items as &$v) {
-            if ($v[0] == 'dir') {// 文件夹
+            if ($v[0] == 'dir') {
+                // 【目录检测】
                 if(!is_writable($v[1])) {
                     if(is_dir($v[1])) {
+                        // 目录存在但不可写
                         $v[3] = lang('install/not_writable');
                         $v[4] = 'no';
                     } else {
+                        // 目录不存在
                         $v[3] = lang('install/not_found');
                         $v[4] = 'no';
                     }
-                    session('install_error', true);
+                    session('install_error', true);  // 设置错误标记
                 }
-            } else {// 文件
+            } else {
+                // 【文件检测】
                 if(!is_writable($v[1])) {
                     $v[3] = lang('install/not_writable');
                     $v[4] = 'no';
-                    session('install_error', true);
+                    session('install_error', true);  // 设置错误标记
                 }
             }
         }
+
         return $items;
     }
     
     /**
-     * 函数及扩展检查
-     * @return array
+     * ============================================================
+     * 【函数扩展检测方法】检测必需的PHP扩展和函数
+     * ============================================================
+     *
+     * 检测项目及用途:
+     * 1. pdo          - PDO类 (数据库访问抽象层，必需)
+     * 2. pdo_mysql    - PDO MySQL驱动扩展 (连接MySQL数据库)
+     * 3. zip          - ZIP压缩扩展 (用于插件安装、模板导入)
+     * 4. fileinfo     - 文件信息扩展 (用于MIME类型检测、文件上传验证)
+     * 5. curl         - cURL扩展 (用于采集、API调用、远程请求)
+     * 6. xml          - XML函数 (用于解析XML格式的采集数据)
+     * 7. file_get_contents - 文件读取函数 (基础文件操作)
+     * 8. mb_strlen    - 多字节字符串函数 (处理中文等多字节字符)
+     *
+     * 特殊检测 (仅 PHP 5.6.x):
+     * - always_populate_raw_post_data 配置项需设为 -1
+     *
+     * 返回数据结构:
+     * [
+     *   [名称, 检测结果, 状态, 类型],
+     *   ...
+     * ]
+     *
+     * 类型: '类' = class_exists, '模块' = extension_loaded, '函数' = function_exists
+     * 状态: 'yes' = 支持, 'no' = 不支持
+     *
+     * @return array 函数扩展检测结果数组
      */
     private function checkFunc()
     {
+        // 初始化检测项列表
+        // 结构: [名称, 检测结果(默认支持), 状态(默认yes), 类型]
         $items = [
-            ['pdo', lang('install/support'), 'yes',lang('install/class')],
-            ['pdo_mysql', lang('install/support'), 'yes', lang('install/model')],
-            ['zip', lang('install/support'), 'yes', lang('install/model')],
-            ['fileinfo', lang('install/support'), 'yes', lang('install/model')],
-            ['curl', lang('install/support'), 'yes', lang('install/model')],
-            ['xml', lang('install/support'), 'yes', lang('install/function')],
-            ['file_get_contents', lang('install/support'), 'yes', lang('install/function')],
-            ['mb_strlen', lang('install/support'), 'yes', lang('install/function')],
+            ['pdo', lang('install/support'), 'yes',lang('install/class')],           // PDO类
+            ['pdo_mysql', lang('install/support'), 'yes', lang('install/model')],    // PDO MySQL扩展
+            ['zip', lang('install/support'), 'yes', lang('install/model')],          // ZIP扩展
+            ['fileinfo', lang('install/support'), 'yes', lang('install/model')],     // Fileinfo扩展
+            ['curl', lang('install/support'), 'yes', lang('install/model')],         // cURL扩展
+            ['xml', lang('install/support'), 'yes', lang('install/function')],       // XML函数
+            ['file_get_contents', lang('install/support'), 'yes', lang('install/function')],  // 文件读取函数
+            ['mb_strlen', lang('install/support'), 'yes', lang('install/function')], // 多字节字符串函数
         ];
 
+        // 【特殊检测】PHP 5.6.x 版本需要检测 always_populate_raw_post_data 配置
+        // 该配置在 PHP 5.6 中需设为 -1，否则会产生警告
         if(version_compare(PHP_VERSION,'5.6.0','ge') && version_compare(PHP_VERSION,'5.7.0','lt')){
             $items[] = ['always_populate_raw_post_data',lang('install/support'),'yes',lang('install/config')];
         }
 
+        // 遍历检测每个扩展/函数
         foreach ($items as &$v) {
-            if(('类'==$v[3] && !class_exists($v[0])) || (lang('install/model')==$v[3] && !extension_loaded($v[0])) || (lang('install/function')==$v[3] && !function_exists($v[0])) || (lang('install/config')==$v[3] && ini_get('always_populate_raw_post_data')!=-1)) {
-                $v[1] = lang('install/not_support');
-                $v[2] = 'no';
-                session('install_error', true);
+            // 根据类型使用不同的检测方法
+            if(
+                ('类'==$v[3] && !class_exists($v[0])) ||                              // 类检测
+                (lang('install/model')==$v[3] && !extension_loaded($v[0])) ||         // 扩展检测
+                (lang('install/function')==$v[3] && !function_exists($v[0])) ||       // 函数检测
+                (lang('install/config')==$v[3] && ini_get('always_populate_raw_post_data')!=-1)  // 配置检测
+            ) {
+                $v[1] = lang('install/not_support');  // 标记为不支持
+                $v[2] = 'no';                          // 状态设为失败
+                session('install_error', true);        // 设置错误标记
             }
         }
 
