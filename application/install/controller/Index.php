@@ -1,17 +1,66 @@
 <?php
+/**
+ * ============================================================
+ * 【安装模块控制器 - 页面数据来源说明】
+ * ============================================================
+ *
+ * 文件位置: application/install/controller/Index.php
+ *
+ * 当浏览器访问 http://localhost:8080/install.php 时:
+ *
+ * 路由解析过程:
+ * 1. install.php 定义 BIND_MODULE = 'install'
+ * 2. ThinkPHP 根据默认规则访问 Index 控制器的 index 方法
+ * 3. URL: /install.php → install/Index/index
+ * 4. URL: /install.php?step=2 → install/Index/index($step=2)
+ *
+ * 类自动加载:
+ * - 命名空间: app\install\controller
+ * - 映射目录: application/install/controller/
+ * - PSR-4规则: app\ → application\
+ *
+ * 数据流向:
+ * ┌──────────────────────────────────────────────────────────┐
+ * │ Index::index()                                           │
+ * │    ↓                                                     │
+ * │ 1. 扫描语言包: glob('./application/lang/*.php')          │
+ * │    结果: ['zh-cn', 'en-us', ...]                        │
+ * │    ↓                                                     │
+ * │ 2. $this->assign('langs', $langs) 传递给视图            │
+ * │    ↓                                                     │
+ * │ 3. $this->fetch('install@/index/index') 渲染模板        │
+ * │    模板路径: application/install/view/index/index.html  │
+ * │    ↓                                                     │
+ * │ 4. 模板中 {volist name="langs"} 循环显示语言选项        │
+ * │    ↓                                                     │
+ * │ 5. {:lang('install/xxx')} 从语言包获取翻译文本          │
+ * │    语言包: application/lang/zh-cn.php                   │
+ * └──────────────────────────────────────────────────────────┘
+ * ============================================================
+ */
 namespace app\install\controller;
 use think\Controller;
 use think\Db;
 use think\Lang;
 use think\Request;
 
+/**
+ * 安装向导控制器
+ *
+ * 继承关系: Index → Controller → think\Controller
+ * Controller 基类提供: assign(), fetch(), error(), success() 等方法
+ */
 class Index extends Controller
 {
 
     /**
-     * 构造方法
+     * 构造方法 - 安全检查
+     *
      * @access public
-     * @param Request $request Request 对象
+     * @param Request $request Request 对象 (依赖注入)
+     *
+     * 说明: 只有通过 install.php 入口才能访问此控制器
+     * 防止通过 index.php?m=install 等方式绕过安装检查
      */
     public function __construct(Request $request = null)
     {
@@ -23,45 +72,106 @@ class Index extends Controller
         parent::__construct($request);
     }
 
+    /**
+     * ★★★ 安装首页 - 当前浏览器显示的页面 ★★★
+     *
+     * URL: /install.php 或 /install.php?step=0
+     *
+     * @param int $step 安装步骤 (0=首页, 2=环境检测, 3=配置, 4=执行, 5=完成)
+     * @return mixed 返回渲染后的 HTML
+     *
+     * 【数据来源详解】
+     *
+     * 页面上显示的数据:
+     * ┌─────────────────────────────────────────────────────────┐
+     * │ "感谢您选择! MacCMS系统建站"                             │
+     * │   ↑ 来自: lang('install/header') + lang('install/header1')│
+     * │   ↑ 文件: application/lang/zh-cn.php                    │
+     * │                                                         │
+     * │ "苹果CMS用户协议..."                                     │
+     * │   ↑ 来自: lang('install/user_agreement')                │
+     * │                                                         │
+     * │ 语言选择下拉框 [zh-cn ▼]                                 │
+     * │   ↑ 来自: $langs 变量 (本方法第28-31行扫描得到)          │
+     * │   ↑ 数据: glob('./application/lang/*.php') 的文件名     │
+     * │                                                         │
+     * │ [同意协议并安装系统] 按钮                                 │
+     * │   ↑ 来自: lang('install/user_agreement_agree')          │
+     * │   ↑ 链接: ?step=2 → 进入环境检测步骤                    │
+     * └─────────────────────────────────────────────────────────┘
+     */
     public function index($step = 0)
     {
+        /**
+         * 【数据准备第1步】扫描可用的语言包
+         *
+         * glob() 函数扫描 application/lang/ 目录下所有 .php 文件
+         * 例如: ['./application/lang/zh-cn.php', './application/lang/en-us.php']
+         * 处理后: ['zh-cn', 'en-us']
+         */
         $langs = glob('./application/lang/*.php');
         foreach ($langs as $k => &$v) {
+            // 移除路径和扩展名，只保留语言代码
+            // './application/lang/zh-cn.php' → 'zh-cn'
             $v = str_replace(['./application/lang/','.php'],['',''],$v);
         }
+
+        /**
+         * 【数据准备第2步】将语言列表传递给视图模板
+         *
+         * assign() 方法将变量注册到模板引擎
+         * 模板中可以通过 {$langs} 或 {volist name="langs"} 访问
+         */
         $this->assign('langs', $langs);
 
+        /**
+         * 【数据准备第3步】加载当前选择的语言包
+         */
         if(in_array(session('lang'),$langs)){
             $lang = Lang::range(session('lang'));
+            // 加载语言包文件，如: application/lang/zh-cn.php
             Lang::load('./application/lang/'.$lang.'.php',$lang);
         }
 
+        /**
+         * 【路由分发】根据 step 参数决定显示哪个安装步骤
+         */
         switch ($step) {
             case 2:
+                // 第2步: 环境检测
                 session('install_error', false);
                 return self::step2();
                 break;
             case 3:
+                // 第3步: 数据库配置
                 if (session('install_error')) {
                     return $this->error(lang('install/environment_failed'));
                 }
                 return self::step3();
                 break;
             case 4:
+                // 第4步: 执行安装
                 if (session('install_error')) {
                     return $this->error(lang('install/environment_failed'));
                 }
                 return self::step4();
                 break;
             case 5:
+                // 第5步: 安装完成
                 if (session('install_error')) {
                     return $this->error(lang('install/init_err'));
                 }
                 return self::step5();
                 break;
             default:
-                $param = input();
+                /**
+                 * 【默认: 显示安装首页 (当前页面)】
+                 *
+                 * step=0 或无参数时执行此分支
+                 */
+                $param = input(); // 获取所有 GET/POST 参数
 
+                // 设置语言 (默认 zh-cn)
                 if(!in_array($param['lang'],$langs)) {
                     $param['lang'] = 'zh-cn';
                 }
@@ -71,6 +181,20 @@ class Index extends Controller
                 $this->assign('lang',$param['lang']);
 
                 session('install_error', false);
+
+                /**
+                 * ★★★ 渲染视图模板 ★★★
+                 *
+                 * fetch() 方法加载并渲染模板:
+                 * - 'install@/index/index' 解析为:
+                 *   模块@/控制器/操作 → application/install/view/index/index.html
+                 *
+                 * 模板引擎会:
+                 * 1. 读取 index.html 文件
+                 * 2. 解析 {$langs}, {:lang('xxx')} 等标签
+                 * 3. 替换变量为实际值
+                 * 4. 返回生成的 HTML 字符串
+                 */
                 return $this->fetch('install@/index/index');
                 break;
         }

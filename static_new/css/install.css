@@ -42,7 +42,7 @@ body {
   background: #FFFFFF;
   border: 1px solid #E6E7EB;
   border-radius: 10px;
-  overflow: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   width: 716px;
@@ -55,7 +55,9 @@ body {
   flex-direction: column;
   flex: 1;
   gap: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 16px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .protocol-box .title {
@@ -67,14 +69,21 @@ body {
   line-height: 28px;
   text-align: center;
   font-style: normal;
+  flex-shrink: 0;
 }
 
 .protocol {
   text-align: left;
-  height: 400px;
+  flex: 1;
   overflow-y: auto;
   color: #4B5563;
   line-height: 24px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.protocol::-webkit-scrollbar {
+  display: none;
 }
 
 .protocol h2 {
@@ -85,6 +94,11 @@ body {
 
 .step-btns {
   padding: 20px 0 10px 0;
+  flex-shrink: 0;
+}
+
+.install-box .layui-form {
+  flex-shrink: 0;
 }
 
 .step-btns .layui-btn {

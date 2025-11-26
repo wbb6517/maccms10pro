@@ -1,21 +1,40 @@
+<!--
+============================================================
+【视图模板文件 - 安装首页】
+文件位置: application/install/view/index/index.html
+控制器调用: Index::index() -> $this->fetch('install@/index/index')
+
+【数据来源映射】
+- 协议标题/内容: lang() 函数从 application/lang/zh-cn.php 获取
+- 语言下拉框: $langs 变量，由控制器 glob() 扫描 application/lang/*.php 得到
+============================================================
+-->
+
+<!-- 【包含头部模板】head.html -->
 {include file="../../../application/install/view/index/head" /}
+
 <div class="install-box">
-   
 
     <div class="protocol-box">
+        <!-- 【协议标题】从语言包获取 -->
         <div class="title">{:lang('install/user_agreement_title')}</div>
         <div class="protocol">
             <p>
+                <!-- 【协议内容】从语言包获取 -->
                 {:lang('install/user_agreement')}
             </p>
         </div>
     </div>
+
+    <!-- 【语言选择表单】 -->
     <form class="layui-form layui-form-pane" action="" method="post">
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('install/lang')}</label>
             <div class="layui-input-inline w200 ">
+                <!-- 【语言下拉框】数据来自控制器的 $langs 变量 -->
                 <select class="" name="lang" lay-filter="lang" style="z-index:99999;">
                     <option value="">{:lang('install/select_lang')}</option>
+                    <!-- volist 循环遍历 $langs 数组 -->
                     {volist name="langs" id="vo"}
                     <option value="{$vo}" {if condition="$lang eq $vo"}selected {/if}>{$vo}</option>
                     {/volist}
@@ -24,15 +43,21 @@
             <div class="layui-form-mid layui-word-aux">{:lang('install/lang_tip')}</div>
         </div>
     </form>
+
+    <!-- 【安装按钮】点击跳转到 ?step=2 -->
     <div class="step-btns">
         <a href="?step=2" class="layui-btn layui-btn-big layui-btn-normal">{:lang('install/user_agreement_agree')}</a>
     </div>
 </div>
+
+<!-- 【包含底部模板】foot.html -->
 {include file="../../../application/install/view/index/foot" /}
+
 <script type="text/javascript">
     var test=0;
     layui.define(['element', 'form'], function(exports) {
         var $ = layui.jquery, layer = layui.layer, form = layui.form;
+        // 监听语言选择下拉框的 change 事件
         form.on('select(lang)',function(data){
             if(data.value !='') {
                 location.href = "{:url('index')}?lang=" + (data.value);
