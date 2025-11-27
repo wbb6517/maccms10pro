@@ -338,6 +338,23 @@ return array (
       'words' => '',
       'uprule' => ',',
     ),
+    'manga' => 
+    array (
+      'status' => '0',
+      'hits_start' => '',
+      'hits_end' => '',
+      'updown_start' => '',
+      'updown_end' => '',
+      'score' => '0',
+      'pic' => '0',
+      'psernd' => '0',
+      'psesyn' => '0',
+      'filter' => '',
+      'thesaurus' => '',
+      'words' => '',
+      'inrule' => ',a',
+      'uprule' => ',a',
+    ),
   ),
   'api' => 
   array (
