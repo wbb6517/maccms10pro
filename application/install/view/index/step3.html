@@ -1,20 +1,63 @@
+<!--
+============================================================
+【视图模板文件 - 安装第三步：数据库配置与管理员设置】
+文件位置: application/install/view/index/step3.html
+控制器调用: Index::step3() -> $this->fetch('install@index/step3')
+
+【页面功能说明】
+此页面包含两个表单，分别处理不同的安装步骤:
+
+┌─────────────────────────────────────────────────────────────┐
+│ 表单1: 数据库配置 (action="?step=4")                        │
+│   - 提交到 step4() 方法                                     │
+│   - 验证数据库连接                                          │
+│   - 创建数据库                                              │
+│   - 生成 database.php 配置文件                              │
+│                                                             │
+│ 表单2: 管理员设置 (action="?step=5")                        │
+│   - 提交到 step5() 方法                                     │
+│   - 导入SQL结构                                             │
+│   - 创建管理员账号                                          │
+│   - 生成 install.lock 锁文件                                │
+└─────────────────────────────────────────────────────────────┘
+
+【数据来源映射】
+- $install_dir: 安装目录路径，由 step3() 控制器传递
+- 所有表单标签文字: lang() 函数从语言包获取
+
+【表单提交流程】
+1. 用户填写数据库配置 → 点击"测试数据库连接"
+2. AJAX提交到 step4() → 验证连接 → 返回结果
+3. 连接成功后 test=1，允许提交表单2
+4. 填写管理员信息 → 点击"创建数据"
+5. 提交到 step5() → 导入SQL → 创建管理员 → 完成安装
+============================================================
+-->
+
+<!-- 【包含头部模板】head.html -->
 {include file="../../../application/install/view/index/head" /}
+
+<!-- 【页面专用样式】 -->
 <style type="text/css">
+    /* 表格单元格左对齐 */
     .layui-table td,
     .layui-table th {
         text-align: left;
     }
 
+    /* 错误状态行样式 - 红色背景 */
     .layui-table tbody tr.no {
         background-color: #f00;
         color: #fff;
     }
 
+    /* 安装盒子宽度 */
     .install-box {
         width: 912px;
         padding-top: 15px;
     }
 
+    /* 页面标题样式 */
     .title-run {
         height: 28px;
         font-family: PingFangSC, PingFang SC;
@@ -27,6 +70,7 @@
         font-style: normal;
     }
 
+    /* 返回按钮样式 */
     .step-btns .last {
         width: 300px;
         height: 40px;
@@ -35,6 +79,7 @@
         color: rgba(64, 204, 146, 1);
     }
 
+    /* 测试连接区域样式 */
     .test {
         display: flex;
         flex-direction: column;
@@ -42,6 +87,7 @@
         gap: 4px;
     }
 
+    /* 测试连接按钮样式 */
     .test .layui-btn {
         width: 300px;
         height: 40px;
@@ -50,6 +96,7 @@
         line-height: 40px;
     }
 
+    /* 测试连接提示文字 */
     .test-text {
         font-family: PingFang-SC, PingFang-SC;
         font-weight: 500;
@@ -60,20 +107,41 @@
         font-style: normal;
     }
 
+    /* 表单输入框宽度 */
     .layui-form-item .layui-input-inline.w200 {
         width: 480px !important;
         text-align: left;
     }
 
+    /* 表单提示文字颜色 */
     .layui-form-mid {
         color: rgba(75, 85, 99, 0.5) !important;
     }
 </style>
+
 <div class="install-box">
+    <!-- 【页面标题】数据库配置 -->
     <div class="title-run">
         {:lang('install/database_config')}
     </div>
+
+    <!--
+    ============================================================
+    【表单1: 数据库配置表单】
+    提交地址: ?step=4 → Index::step4() 方法
+    提交方式: POST (AJAX)
+
+    step4() 方法处理逻辑:
+    1. 验证表单数据 (服务器地址、端口、数据库名等)
+    2. 尝试连接数据库服务器
+    3. 生成 application/database.php 配置文件
+    4. 创建数据库 (如果不存在)
+    5. 返回 JSON 格式结果
+    ============================================================
+    -->
     <form class="layui-form layui-form-pane" action="?step=4" method="post">
+
+        <!-- 【数据库服务器地址】默认 127.0.0.1 (本地) -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('install/server_address')}</label>
             <div class="layui-input-inline w200">
@@ -81,6 +149,8 @@
             </div>
             <div class="layui-form-mid layui-word-aux">{:lang('install/server_address_tip')}</div>
         </div>
+
+        <!-- 【数据库端口】默认 3306 (MySQL标准端口) -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('install/database_port')}</label>
             <div class="layui-input-inline w200">
@@ -88,6 +158,8 @@
             </div>
             <div class="layui-form-mid layui-word-aux">{:lang('install/database_port_tip')}</div>
         </div>
+
+        <!-- 【数据库名称】用户需填写，系统会自动创建 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('install/database_name')}</label>
             <div class="layui-input-inline w200">
@@ -95,6 +167,8 @@
             </div>
             <div class="layui-form-mid layui-word-aux">{:lang('install/database_name_tip')}</div>
         </div>
+
+        <!-- 【数据库账号】MySQL用户名 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('install/database_username')}</label>
             <div class="layui-input-inline w200">
@@ -102,6 +176,8 @@
             </div>
             <div class="layui-form-mid layui-word-aux">{:lang('install/database_username_tip')}</div>
         </div>
+
+        <!-- 【数据库密码】MySQL密码 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('install/database_pass')}</label>
             <div class="layui-input-inline w200">
@@ -109,6 +185,8 @@
             </div>
             <div class="layui-form-mid layui-word-aux">{:lang('install/database_pass_tip')}</div>
         </div>
+
+        <!-- 【数据库表前缀】默认 mac_，所有表名以此开头 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('install/database_pre')}</label>
             <div class="layui-input-inline w200">
@@ -116,6 +194,12 @@
             </div>
             <div class="layui-form-mid layui-word-aux">{:lang('install/database_pre_tip')}</div>
         </div>
+
+        <!--
+        【覆盖数据库选项】
+        - 覆盖(1): 如果数据库已存在，会删除重建
+        - 不覆盖(0): 如果数据库已存在，保留原有数据
+        -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('install/overwrite_database')}</label>
             <div class="layui-input-inline w200">
@@ -124,16 +208,44 @@
             </div>
             <div class="layui-form-mid layui-word-aux">{:lang('install/overwrite_tip')}</div>
         </div>
+
+        <!--
+        【测试数据库连接按钮】
+        点击触发 formTest 事件，AJAX提交表单到 step4
+        连接成功后设置 test=1，才允许提交表单2
+        -->
         <div class="test">
             <button type="submit" class="layui-btn" lay-submit=""
                 lay-filter="formTest">{:lang('install/test_connect')}</button>
             <div class="test-text">{:lang('install/test_connect_tip')}</div>
         </div>
     </form>
+
+    <!--
+    ============================================================
+    【表单2: 管理员设置表单】
+    提交地址: ?step=5 → Index::step5() 方法
+    提交方式: POST
+
+    step5() 方法处理逻辑:
+    1. 验证管理员账号密码
+    2. 导入 install.sql 创建数据库表结构
+    3. 可选导入 initdata.sql 初始化演示数据
+    4. 创建管理员账号
+    5. 生成 install.lock 锁定安装
+    6. 跳转到后台管理页面
+    ============================================================
+    -->
     <form class="layui-form layui-form-pane" action="?step=5" method="post">
+        <!-- 隐藏字段: 安装目录路径 -->
         <input type="hidden" name="install_dir" value="{$install_dir}">
+        <!-- 隐藏字段: CSRF Token 防止跨站请求伪造 -->
         <input type="hidden" name="__token__" value="{$Request.token}" />
+
+        <!-- 分隔线 -->
         <fieldset class="layui-elem-field layui-field-title"></fieldset>
+
+        <!-- 【管理员账号】后台登录用户名，最少4位 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('install/admin_name')}</label>
             <div class="layui-input-inline w200">
@@ -141,6 +253,8 @@
             </div>
             <div class="layui-form-mid layui-word-aux">{:lang('install/admin_name_tip')}</div>
         </div>
+
+        <!-- 【管理员密码】后台登录密码，6-20位 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('install/admin_pass')}</label>
             <div class="layui-input-inline w200">
@@ -148,6 +262,12 @@
             </div>
             <div class="layui-form-mid layui-word-aux">{:lang('install/admin_pass_tip')}</div>
         </div>
+
+        <!--
+        【初始化演示数据选项】
+        - 创建(1): 导入 initdata.sql，包含演示分类、播放器等数据
+        - 不创建(0): 只创建空的数据库结构
+        -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('install/init_data')}</label>
             <div class="layui-input-inline w200">
@@ -156,22 +276,57 @@
             </div>
             <div class="layui-form-mid layui-word-aux">{:lang('install/create_tip')}</div>
         </div>
+
+        <!-- 【操作按钮区域】 -->
         <div class="step-btns">
+            <!-- 返回上一步: ?step=2 → 环境检测页面 -->
             <a href="?step=2" class="layui-btn last fl">{:lang('install/back_step')}</a>
+            <!-- 创建数据: 提交表单2到 step5，必须先测试数据库连接成功 -->
             <button type="submit" class="layui-btn layui-btn-big layui-btn-normal fr" lay-submit=""
                 lay-filter="formSubmit">{:lang('install/exec')}</button>
         </div>
     </form>
 </div>
+
+<!-- 统计代码 (隐藏) -->
 <span style="display: none">
     <iframe src="//www.maccms.la/tongji.html?v10-php" MARGINWIDTH="0" MARGINHEIGHT="0" HSPACE="0" VSPACE="0"
         FRAMEBORDER="0" SCROLLING="no" width="0" height="0"></iframe>
 </span>
+
+<!-- 【包含底部模板】foot.html -->
 {include file="../../../application/install/view/index/foot" /}
+
+<!--
+============================================================
+【JavaScript 交互逻辑】
+
+变量说明:
+- test: 数据库连接测试标记，0=未测试/失败，1=测试成功
+
+事件说明:
+1. formTest: 测试数据库连接
+   - AJAX提交表单1到 step4
+   - 成功返回 code=1 时设置 test=1
+   - 显示连接结果消息
+
+2. formSubmit: 提交安装
+   - 检查 test==1，未测试则阻止提交
+   - 提交表单2到 step5 执行最终安装
+============================================================
+-->
 <script type="text/javascript">
+    // 数据库连接测试状态: 0=未测试, 1=测试成功
     var test = 0;
+
     layui.define(['element', 'form'], function (exports) {
         var $ = layui.jquery, layer = layui.layer, form = layui.form;
+
+        /**
+         * 【测试数据库连接】表单1提交事件
+         * 触发: 点击"测试数据库连接"按钮
+         * 流程: AJAX POST → step4() → 返回JSON结果
+         */
         form.on('submit(formTest)', function (data) {
             var _form = '';
             if ($(this).attr('data-form')) {
@@ -180,27 +335,39 @@
                 _form = $(this).parents('form');
             }
 
+            // 显示加载提示
             layer.msg("{:lang('wait_submit')}", { time: 500000 });
+
+            // AJAX提交数据库配置到 step4
             $.ajax({
                 type: "POST",
-                url: _form.attr('action'),
-                data: _form.serialize(),
+                url: _form.attr('action'),  // ?step=4
+                data: _form.serialize(),     // 序列化表单数据
                 dataType: 'json',
                 success: function (res) {
                     if (res.code == 1) {
+                        // 连接成功，设置标记允许提交表单2
                         test = 1;
                     }
+                    // 显示结果消息
                     layer.msg(res.msg);
                 }
             });
-            return false;
+            return false;  // 阻止表单默认提交
         });
+
+        /**
+         * 【执行安装】表单2提交事件
+         * 触发: 点击"创建数据"按钮
+         * 检查: 必须先测试数据库连接成功 (test==1)
+         */
         form.on('submit(formSubmit)', function (data) {
             if (test == 0) {
+                // 未测试数据库连接，阻止提交
                 layer.msg("{:lang('install/submit_tip')}");
                 return false;
             }
-
+            // test==1，允许表单正常提交到 step5
         });
     });
 </script>

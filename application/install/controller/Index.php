@@ -251,150 +251,283 @@ class Index extends Controller
     }
     
     /**
-     * 第三步：初始化配置
-     * @return mixed
+     * ============================================================
+     * 【第三步：数据库配置页面】
+     * ============================================================
+     *
+     * URL: /install.php?step=3
+     *
+     * 功能说明:
+     * 显示数据库配置表单，让用户填写:
+     * - 数据库服务器地址、端口
+     * - 数据库名称、账号、密码
+     * - 数据库表前缀
+     * - 管理员账号密码
+     *
+     * 数据流向:
+     * ┌─────────────────────────────────────────────────────────┐
+     * │ step3()                                                 │
+     * │    ↓                                                    │
+     * │ 获取安装目录路径 $install_dir                           │
+     * │    ↓                                                    │
+     * │ assign('install_dir', $install_dir) 传递给视图         │
+     * │    ↓                                                    │
+     * │ fetch('install@index/step3') 渲染配置表单页面          │
+     * │    模板路径: application/install/view/index/step3.html │
+     * └─────────────────────────────────────────────────────────┘
+     *
+     * @return mixed 返回渲染后的 HTML
      */
     private function step3()
     {
+        // 获取当前脚本路径，用于确定安装目录
         $install_dir = $_SERVER["SCRIPT_NAME"];
+        // 提取目录路径 (去除 install.php 文件名)
         $install_dir = mac_substring($install_dir, strripos($install_dir, "/")+1);
+
+        // 将安装目录传递给视图，用于表单隐藏字段
         $this->assign('install_dir',$install_dir);
+
+        // 渲染数据库配置页面
         return $this->fetch('install@index/step3');
     }
     
     /**
-     * 第四步：执行安装
-     * @return mixed
+     * ============================================================
+     * 【第四步：测试数据库连接并创建数据库】
+     * ============================================================
+     *
+     * URL: /install.php?step=4 (POST请求，AJAX调用)
+     *
+     * 功能说明:
+     * 1. 验证数据库配置参数
+     * 2. 测试数据库服务器连接
+     * 3. 生成 database.php 配置文件
+     * 4. 创建数据库 (如果不存在)
+     *
+     * 处理流程:
+     * ┌─────────────────────────────────────────────────────────┐
+     * │ step4() - AJAX POST 请求                                │
+     * │    ↓                                                    │
+     * │ 1. 验证POST数据 (hostname, hostport, database等)       │
+     * │    ↓                                                    │
+     * │ 2. Db::connect() 测试数据库连接                        │
+     * │    ↓                                                    │
+     * │ 3. mkDatabase() 生成 application/database.php          │
+     * │    ↓                                                    │
+     * │ 4. 检查数据库是否存在 (根据cover参数决定是否覆盖)      │
+     * │    ↓                                                    │
+     * │ 5. CREATE DATABASE 创建数据库                          │
+     * │    ↓                                                    │
+     * │ 6. 返回 JSON {code:1, msg:'连接成功'}                  │
+     * └─────────────────────────────────────────────────────────┘
+     *
+     * @return mixed JSON格式响应
      */
     private function step4()
     {
+        // 仅处理POST请求
         if ($this->request->isPost()) {
+            // 检查 database.php 配置文件是否可写
             if (!is_writable(APP_PATH.'database.php')) {
                 return $this->error('[app/database.php]'.lang('install/write_read_err'));
             }
+
+            // 获取POST提交的数据库配置
             $data = input('post.');
-            $data['type'] = 'mysql';
+            $data['type'] = 'mysql';  // 数据库类型固定为 MySQL
+
+            // 【表单验证规则】
             $rule = [
-                'hostname|'.lang('install/server_address') => 'require',
-                'hostport|'.lang('install/database_port') => 'require|number',
-                'database|'.lang('install/database_name') => 'require',
-                'username|'.lang('install/database_username') => 'require',
-                'prefix|'.lang('install/database_pre') => 'require|regex:^[a-z0-9]{1,20}[_]{1}',
-                'cover|'.lang('install/overwrite_database') => 'require|in:0,1',
+                'hostname|'.lang('install/server_address') => 'require',                           // 服务器地址必填
+                'hostport|'.lang('install/database_port') => 'require|number',                     // 端口必填且为数字
+                'database|'.lang('install/database_name') => 'require',                            // 数据库名必填
+                'username|'.lang('install/database_username') => 'require',                        // 用户名必填
+                'prefix|'.lang('install/database_pre') => 'require|regex:^[a-z0-9]{1,20}[_]{1}',  // 前缀格式验证
+                'cover|'.lang('install/overwrite_database') => 'require|in:0,1',                   // 覆盖选项 0或1
             ];
             $validate = $this->validate($data, $rule);
             if (true !== $validate) {
                 return $this->error($validate);
             }
+
+            // 保存并移除 cover 参数 (不写入配置文件)
             $cover = $data['cover'];
             unset($data['cover']);
+
+            // 验证参数是否在配置模板中存在
             $config = include APP_PATH.'database.php';
             foreach ($data as $k => $v) {
                 if (array_key_exists($k, $config) === false) {
                     return $this->error(lang('param').''.$k.''.lang('install/not_found'));
                 }
             }
-            // 不存在的数据库会导致连接失败
+
+            // 临时移除 database 参数 (连接时不指定数据库，因为可能不存在)
             $database = $data['database'];
             unset($data['database']);
-            // 创建数据库连接
+
+            // 【创建数据库连接】测试连接是否成功
             $db_connect = Db::connect($data);
-            // 检测数据库连接
             try{
+                // 执行简单查询测试连接
                 $db_connect->execute('select version()');
             }catch(\Exception $e){
+                // 连接失败，返回错误
                 $this->error(lang('install/database_connect_err'));
             }
 
-            // 生成数据库配置文件
+            // 【生成数据库配置文件】
             $data['database'] = $database;
             self::mkDatabase($data);
 
-
-            // 不覆盖检测是否已存在数据库
+            // 【检查数据库是否已存在】(不覆盖模式)
             if (!$cover) {
                 $check = $db_connect->execute('SELECT * FROM information_schema.schemata WHERE schema_name="'.$database.'"');
                 if ($check) {
+                    // 数据库已存在，提示用户
                     $this->success(lang('install/database_name_haved'),'');
                 }
             }
-            // 创建数据库
+
+            // 【创建数据库】如果不存在则创建，使用 UTF8 编码
             if (!$db_connect->execute("CREATE DATABASE IF NOT EXISTS `{$database}` DEFAULT CHARACTER SET utf8")) {
                 return $this->error($db_connect->getError());
             }
 
-
+            // 返回成功响应
             return $this->success(lang('install/database_connect_ok'), '');
         } else {
+            // 非POST请求，拒绝访问
             return $this->error(lang('install/access_denied'));
         }
     }
     
     /**
-     * 第五步：数据库安装
-     * @return mixed
+     * ============================================================
+     * 【第五步：执行最终安装 - 导入数据库与创建管理员】
+     * ============================================================
+     *
+     * URL: /install.php?step=5 (POST请求)
+     *
+     * 功能说明:
+     * 1. 验证管理员账号密码
+     * 2. 更新系统配置文件 (maccms.php)
+     * 3. 导入数据库表结构 (install.sql)
+     * 4. 可选导入初始化数据 (initdata.sql)
+     * 5. 创建管理员账号
+     * 6. 生成安装锁文件 (install.lock)
+     * 7. 跳转到后台管理页面
+     *
+     * 处理流程:
+     * ┌─────────────────────────────────────────────────────────┐
+     * │ step5() - POST 请求                                     │
+     * │    ↓                                                    │
+     * │ 1. 验证管理员账号/密码格式                              │
+     * │    ↓                                                    │
+     * │ 2. 更新 application/extra/maccms.php 配置              │
+     * │    - 设置缓存标识                                       │
+     * │    - 设置语言                                           │
+     * │    - 禁用API默认开关                                    │
+     * │    - 生成接口密钥                                       │
+     * │    ↓                                                    │
+     * │ 3. 导入 install/sql/install.sql 创建数据表             │
+     * │    - 替换表前缀 mac_ → 用户自定义前缀                  │
+     * │    ↓                                                    │
+     * │ 4. 可选导入 install/sql/initdata.sql 演示数据          │
+     * │    ↓                                                    │
+     * │ 5. 创建管理员账号 (调用 Admin 模型)                    │
+     * │    ↓                                                    │
+     * │ 6. 生成 data/install/install.lock 锁定安装             │
+     * │    ↓                                                    │
+     * │ 7. 跳转到 admin.php 后台管理页面                       │
+     * └─────────────────────────────────────────────────────────┘
+     *
+     * SQL文件位置:
+     * - application/install/sql/install.sql    数据库结构
+     * - application/install/sql/initdata.sql   初始化演示数据
+     *
+     * @return mixed 成功则跳转，失败返回错误信息
      */
     private function step5()
     {
-        $account = input('post.account');
-        $password = input('post.password');
-        $install_dir = input('post.install_dir');
-        $initdata = input('post.initdata');
+        // 获取POST参数
+        $account = input('post.account');      // 管理员账号
+        $password = input('post.password');    // 管理员密码
+        $install_dir = input('post.install_dir');  // 安装目录
+        $initdata = input('post.initdata');    // 是否导入初始化数据 (1=是, 0=否)
 
+        // 【验证数据库配置】确保已完成第四步
         $config = include APP_PATH.'database.php';
         if (empty($config['hostname']) || empty($config['database']) || empty($config['username'])) {
             return $this->error(lang('install/please_test_connect'));
         }
+
+        // 【验证管理员信息】
         if (empty($account) || empty($password)) {
             return $this->error(lang('install/please_input_admin_name_pass'));
         }
 
+        // 【管理员信息验证规则】
         $rule = [
-            'account|'.lang('install/admin_name') => 'require|alphaNum',
-            'password|'.lang('install/admin_pass') => 'require|length:6,20',
+            'account|'.lang('install/admin_name') => 'require|alphaNum',    // 账号: 必填，字母数字
+            'password|'.lang('install/admin_pass') => 'require|length:6,20', // 密码: 必填，6-20位
         ];
         $validate = $this->validate(['account' => $account, 'password' => $password], $rule);
         if (true !== $validate) {
             return $this->error($validate);
         }
+
+        // 默认安装目录为根目录
         if(empty($install_dir)) {
             $install_dir='/';
         }
-        $config_new = config('maccms');
-        $cofnig_new['app']['cache_flag'] = substr(md5(time()),0,10);
-        $cofnig_new['app']['lang'] = session('lang');
 
+        // 【更新系统配置文件】
+        $config_new = config('maccms');
+        $cofnig_new['app']['cache_flag'] = substr(md5(time()),0,10);  // 生成缓存标识
+        $cofnig_new['app']['lang'] = session('lang');  // 设置语言
+
+        // 默认禁用视频和文章API
         $config_new['api']['vod']['status'] = 0;
         $config_new['api']['art']['status'] = 0;
 
+        // 默认禁用接口，生成随机密钥
         $config_new['interface']['status'] = 0;
-        $config_new['interface']['pass'] = mac_get_rndstr(16);
+        $config_new['interface']['pass'] = mac_get_rndstr(16);  // 16位随机密钥
         $config_new['site']['install_dir'] = $install_dir;
-        
-        // 更新程序配置文件
+
+        // 写入配置文件
         $res = mac_arr2file(APP_PATH . 'extra/maccms.php', $config_new);
 		if ($res === false) {
 			return $this->error(lang('write_err_config'));
 		}
-		
-        // 导入系统初始数据库结构
-        // 导入SQL
+
+        // ============================================================
+        // 【导入数据库结构】install.sql
+        // 包含所有数据表的创建语句 (CREATE TABLE)
+        // ============================================================
         $sql_file = APP_PATH.'install/sql/install.sql';
         if (file_exists($sql_file)) {
             $sql = file_get_contents($sql_file);
+            // 解析SQL，替换表前缀 mac_ → 用户设置的前缀
             $sql_list = mac_parse_sql($sql, 0, ['mac_' => $config['prefix']]);
             if ($sql_list) {
                 $sql_list = array_filter($sql_list);
                 foreach ($sql_list as $v) {
                     try {
-                        Db::execute($v);
+                        Db::execute($v);  // 执行每条SQL语句
                     } catch(\Exception $e) {
                         return $this->error(lang('install/sql_err'). $e);
                     }
                 }
             }
         }
-        //初始化数据
+
+        // ============================================================
+        // 【导入初始化数据】initdata.sql (可选)
+        // 包含演示分类、播放器配置、解析接口等初始数据
+        // ============================================================
         if($initdata=='1'){
             $sql_file = APP_PATH.'install/sql/initdata.sql';
             if (file_exists($sql_file)) {
@@ -413,21 +546,31 @@ class Index extends Controller
             }
         }
 
-        // 注册管理员账号
+        // ============================================================
+        // 【创建管理员账号】
+        // 调用 Admin 模型的 saveData 方法
+        // ============================================================
         $data = [
             'admin_name' => $account,
             'admin_pwd' => $password,
-            'admin_status' =>1,
+            'admin_status' =>1,  // 启用状态
         ];
         $res = model('Admin')->saveData($data);
         if (!$res['code']>1) {
             return $this->error(lang('install/admin_name_err').'：'.$res['msg']);
         }
+
+        // ============================================================
+        // 【生成安装锁文件】
+        // 创建后将阻止重复安装 (index.php 会检测此文件)
+        // ============================================================
         file_put_contents(APP_PATH.'data/install/install.lock', date('Y-m-d H:i:s'));
 
-        // 获取站点根目录
+        // 获取站点根目录，跳转到后台
         $root_dir = request()->baseFile();
         $root_dir  = preg_replace(['/install.php$/'], [''], $root_dir);
+
+        // 安装成功，跳转到 admin.php 后台管理页面
         return $this->success(lang('install/is_ok'), $root_dir.'admin.php');
     }
     
