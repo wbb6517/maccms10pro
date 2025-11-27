@@ -1,4 +1,30 @@
 <?php
+/**
+ * ============================================================
+ * 后台首页控制器 (Admin Index Controller)
+ * ============================================================
+ *
+ * 【文件说明】
+ * 处理后台的核心页面，包括:
+ * - 登录/登出
+ * - 后台首页框架
+ * - 欢迎页/仪表盘
+ * - 系统状态监控
+ * - 快捷菜单管理
+ *
+ * 【主要方法】
+ * - login()    : 登录页面和登录处理
+ * - logout()   : 退出登录
+ * - index()    : 后台首页框架 (左侧菜单+右侧iframe)
+ * - welcome()  : 欢迎页/仪表盘 (系统状态、统计数据)
+ *
+ * 【访问路径】
+ * admin.php/index/login   → login()
+ * admin.php/index/index   → index()
+ * admin.php/index/welcome → welcome()
+ *
+ * ============================================================
+ */
 
 namespace app\admin\controller;
 
@@ -6,33 +32,210 @@ use think\Hook;
 use think\Db;
 use Exception;
 use ip_limit\IpLocationQuery;
+
 class Index extends Base
 {
+    /**
+     * 构造函数
+     * 调用父类 Base::__construct() 进行登录检测和权限验证
+     */
     public function __construct()
     {
         parent::__construct();
     }
 
+    /**
+     * ============================================================
+     * 登录方法 - 后台登录入口
+     * ============================================================
+     *
+     * 【访问路径】
+     * GET  admin.php/index/login  → 显示登录页面
+     * POST admin.php/index/login  → 处理登录请求
+     *
+     * 【执行流程】
+     *
+     * GET请求 (显示登录页面):
+     * ┌─────────────────────────────────────────────────────────┐
+     * │  1. 触发 admin_login_init 钩子 (可用于登录前置处理)      │
+     * │  2. 渲染 admin@index/login 模板                         │
+     * │  3. 返回登录页面 HTML                                    │
+     * └─────────────────────────────────────────────────────────┘
+     *
+     * POST请求 (处理登录):
+     * ┌─────────────────────────────────────────────────────────┐
+     * │  1. 获取表单数据 (user_name, user_pwd, verify)          │
+     * │  2. 调用 Admin 模型的 login() 方法验证                   │
+     * │  3. 验证成功 → 返回 success，前端JS跳转到后台首页        │
+     * │  4. 验证失败 → 返回 error，显示错误提示                  │
+     * └─────────────────────────────────────────────────────────┘
+     *
+     * 【为什么不需要登录检测？】
+     * 在 Base::__construct() 中，Index/login 被加入白名单
+     * 所以访问登录页时不会被重定向
+     *
+     * 【模板位置】
+     * application/admin/view/index/login.html
+     *
+     * @return mixed 登录页面HTML 或 JSON响应
+     */
     public function login()
     {
+        // ============================================================
+        // 【POST请求】处理登录表单提交
+        // ============================================================
         if (Request()->isPost()) {
+            // 获取所有POST数据
+            // 包含: user_name(账号), user_pwd(密码), verify(验证码)
             $data = input('post.');
+
+            // --------------------------------------------------------
+            // 调用 Admin 模型的 login() 方法进行验证
+            // --------------------------------------------------------
+            // login() 方法执行流程:
+            // 1. 验证码检测 (如果开启)
+            // 2. 查询管理员账号是否存在
+            // 3. 密码MD5比对
+            // 4. 检查账号状态
+            // 5. 写入 Session 登录信息
+            // 6. 记录登录日志
+            //
+            // 返回值格式:
+            // - 成功: ['code' => 1, 'msg' => '登录成功']
+            // - 失败: ['code' => 1001/1002/..., 'msg' => '错误信息']
             $res = model('Admin')->login($data);
+
             if ($res['code'] > 1) {
+                // ★ 登录失败 → 返回错误提示
+                // error() 方法返回 JSON: {code: 0, msg: "错误信息", ...}
+                // 前端 Layui 会显示错误弹窗
                 return $this->error($res['msg']);
             }
+
+            // ★ 登录成功 → 返回成功提示
+            // success() 方法返回 JSON: {code: 1, msg: "登录成功", url: "..."}
+            // 前端 Layui 会自动跳转到 url (默认跳转到后台首页)
             return $this->success($res['msg']);
         }
+
+        // ============================================================
+        // 【GET请求】显示登录页面
+        // ============================================================
+
+        // --------------------------------------------------------
+        // 触发登录初始化钩子 (Hook 机制详解)
+        // --------------------------------------------------------
+        //
+        // 【Hook::listen() 工作原理】
+        // ThinkPHP 的 Hook (钩子) 是一种事件监听机制，允许在特定位置
+        // 插入自定义代码，而无需修改核心文件。
+        //
+        // 【参数说明】
+        // - 第1个参数 "admin_login_init": 钩子标签名称 (事件名)
+        // - 第2个参数 $this->request: 传递给监听器的参数 (Request对象)
+        //
+        // 【执行流程】
+        // 1. Hook::listen() 查找所有注册到 "admin_login_init" 的行为类
+        // 2. 依次执行每个行为类的对应方法
+        // 3. 将 $this->request 作为参数传入
+        //
+        // 【钩子注册方式】
+        //
+        // 方式1: 在 application/tags.php 中静态注册
+        // return [
+        //     'admin_login_init' => [
+        //         'app\\common\\behavior\\LoginCheck',  // 行为类
+        //     ],
+        // ];
+        //
+        // 方式2: 在代码中动态注册
+        // Hook::add('admin_login_init', 'app\\common\\behavior\\LoginCheck');
+        // Hook::add('admin_login_init', function(&$request) {
+        //     // 闭包函数
+        // });
+        //
+        // 【行为类示例】
+        // namespace app\common\behavior;
+        // class LoginCheck {
+        //     // 方法名 = 钩子名转驼峰: admin_login_init → adminLoginInit
+        //     public function adminLoginInit(&$request, $extra = null) {
+        //         // 登录前置检查逻辑
+        //         // 例如: IP黑名单检测、登录频率限制、验证码预处理等
+        //         $ip = $request->ip();
+        //         if ($this->isBlocked($ip)) {
+        //             return false;  // 返回 false 会中断后续行为执行
+        //         }
+        //     }
+        // }
+        //
+        // 【当前状态】
+        // 默认情况下 tags.php 中未注册 admin_login_init 的监听器
+        // 此钩子为预留扩展点，方便插件或二次开发时使用
+        //
+        // 【典型应用场景】
+        // - 登录IP限制
+        // - 登录失败次数检测
+        // - 验证码类型切换
+        // - 登录日志记录
+        // - 第三方登录集成前置处理
+        //
         Hook::listen("admin_login_init", $this->request);
+
+        // --------------------------------------------------------
+        // 渲染登录模板
+        // --------------------------------------------------------
+        // fetch() 方法说明:
+        // - 'admin@index/login' = admin模块 / view/index/login.html
+        // - 模板路径: application/admin/view/index/login.html
+        // - 返回渲染后的 HTML 字符串
         return $this->fetch('admin@index/login');
     }
 
+    /**
+     * ============================================================
+     * 退出登录
+     * ============================================================
+     *
+     * 【访问路径】
+     * admin.php/index/logout
+     *
+     * 【执行流程】
+     * 1. 调用 Admin 模型的 logout() 方法清除 Session
+     * 2. 重定向到登录页面
+     *
+     */
     public function logout()
     {
+        // 调用 Admin 模型清除登录状态
+        // logout() 会清除 Session 中的管理员信息
         $res = model('Admin')->logout();
+
+        // 重定向到登录页面
         $this->redirect('index/login');
     }
 
+    /**
+     * ============================================================
+     * 后台首页框架
+     * ============================================================
+     *
+     * 【访问路径】
+     * admin.php 或 admin.php/index/index
+     *
+     * 【页面结构】
+     * ┌─────────────────────────────────────────────────────────┐
+     * │  顶部导航栏 (Logo、用户信息、退出按钮)                    │
+     * ├──────────────┬──────────────────────────────────────────┤
+     * │              │                                          │
+     * │   左侧菜单    │         右侧内容区 (iframe)               │
+     * │              │         默认加载 welcome 页面             │
+     * │              │                                          │
+     * └──────────────┴──────────────────────────────────────────┘
+     *
+     * 【模板位置】
+     * application/admin/view/index/index.html
+     *
+     */
     public function index()
     {
         $menus = @include MAC_ADMIN_COMM . 'auth.php';

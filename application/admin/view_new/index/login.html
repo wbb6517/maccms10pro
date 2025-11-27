@@ -1,3 +1,90 @@
+<!--
+============================================================
+后台登录页面模板 - 新版 (Admin Login Template - New Version)
+============================================================
+
+【文件说明】
+管理员登录页面，采用响应式设计
+- PC端: 左侧登录表单 (hidden lg:flex)
+- 移动端: 全屏登录表单 (lg:hidden)
+使用 Layui + TailwindCSS 实现 UI 布局
+
+【模板加载机制】
+配置位置: thinkphp/library/think/view/driver/Think.php:83-84
+加载逻辑:
+1. 优先加载 view_new 目录下的模板
+2. 如果 view_new 中不存在，自动从 view 目录复制
+3. 这是 MacCMS 的后台模板升级机制
+
+【验证码请求流程】
+┌────────────────────────────────────────────────────────────┐
+│  1. 页面加载时                                              │
+│     <img src="__ROOT__/index.php/verify/index.html">        │
+│     请求验证码图片                                           │
+├────────────────────────────────────────────────────────────┤
+│  2. URL路由解析                                             │
+│     /index.php/verify/index.html                            │
+│     → index 模块 / Verify 控制器 / index 方法               │
+├────────────────────────────────────────────────────────────┤
+│  3. 验证码生成 (Verify::index)                               │
+│     new Captcha(config)->entry()                            │
+│     - 读取配置: application/extra/captcha.php               │
+│     - 生成随机验证码字符 (默认4位数字)                        │
+│     - 绘制验证码图片 (GD库)                                  │
+│     - 加密后存入 Session                                     │
+│     - 输出 PNG 图片流                                        │
+├────────────────────────────────────────────────────────────┤
+│  4. 点击刷新验证码                                           │
+│     onclick="this.src = this.src+'?'"                       │
+│     添加?参数使URL变化，触发浏览器重新请求                    │
+└────────────────────────────────────────────────────────────┘
+
+【登录校验流程】
+┌────────────────────────────────────────────────────────────┐
+│  1. 前端验证 (form.verify)                                   │
+│     - 账号不能为空                                           │
+│     - 密码不能为空                                           │
+│     - 验证码不能为空                                         │
+├────────────────────────────────────────────────────────────┤
+│  2. AJAX 提交                                               │
+│     $.post("{:url('index/login')}", data.field)             │
+│     POST → admin/index/login                                │
+├────────────────────────────────────────────────────────────┤
+│  3. 后端处理 (Index::login)                                  │
+│     → model('Admin')->login($data)                          │
+│     文件: application/common/model/Admin.php:255            │
+├────────────────────────────────────────────────────────────┤
+│  4. 验证码校验 (Admin::login)                                │
+│     captcha_check($data['verify'])                          │
+│     - 从 Session 获取存储的验证码                            │
+│     - 比对用户输入与存储值 (不区分大小写)                     │
+│     - 检查验证码是否过期 (默认1800秒)                        │
+│     - 验证后自动销毁 Session (防止重复使用)                   │
+├────────────────────────────────────────────────────────────┤
+│  5. 登录结果                                                 │
+│     成功: location.href = 后台首页                           │
+│     失败: layer.msg显示错误 + 刷新验证码                      │
+└────────────────────────────────────────────────────────────┘
+
+【配置项】
+- maccms.app.admin_login_verify: 是否开启验证码
+  0 = 关闭验证码
+  1 = 开启验证码 (默认)
+
+【相关文件】
+- application/index/controller/Verify.php   : 验证码控制器
+- application/extra/captcha.php             : 验证码配置
+- vendor/topthink/think-captcha/            : 验证码扩展包
+- application/common/model/Admin.php        : 登录验证逻辑
+- thinkphp/library/think/view/driver/Think.php : 模板加载机制
+
+【响应式设计】
+- PC端 (lg:flex): .login-body 包裹的表单
+- 移动端 (lg:hidden): 独立的移动端表单
+- 两个表单分别监听 submit(sub) 和 submit(sub1)
+
+============================================================
+-->
 <!DOCTYPE html>
 <html lang="en">
 
@@ -7,33 +94,43 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <title>{:lang('admin/index/login/title')}</title>
+    <!-- Layui CSS: 表单样式基础 -->
     <link rel="stylesheet" href="__STATIC__/layui/css/layui.css?v=1024">
+    <!-- 后台自定义样式 -->
     <link rel="stylesheet" href="__STATIC__/css/admin_style.css?v=1024">
+    <!-- TailwindCSS: 响应式布局 -->
     <link rel="stylesheet" href="__STATIC__/css/tailwindcssOutput.css?{$MAC_VERSION}">
 </head>
 <style>
+    /* ============================================================
+     * 表单项布局: Flex 纵向排列
+     * ============================================================ */
     .layui-form-item {
         display: flex;
         flex-direction: column;
         margin-bottom: 30px;
     }
 
+    /* 表单标签样式 */
     .layui-form-pane .layui-form-label {
         width: fit-content;
         color: #4B5563;
         padding: 8px 0;
     }
 
+    /* 输入框容器 */
     .layui-form-pane .layui-input-block {
         margin-left: 0;
         position: relative;
     }
 
+    /* 输入框: 圆角 + 左侧预留图标空间 */
     .layui-form-pane .layui-input {
         border-radius: 4px;
         padding-left: 38px;
     }
 
+    /* 输入框左侧图标定位 */
     .fix-icon {
         width: 16px !important;
         height: 16px !important;
@@ -45,6 +142,12 @@
 </style>
 
 <body class="w-full h-full">
+    <!--
+    ============================================================
+    PC端登录表单 (屏幕宽度 >= 1024px 时显示)
+    ============================================================
+    hidden lg:flex: 默认隐藏，大屏时显示
+    -->
     <div class="login-body body hidden  lg:flex w-full h-full">
         <div class="fixbox">
             <div class="login-head">
@@ -55,6 +158,7 @@
                     <div class="layui-form-item mt-[20px]">
                         <h3>{:lang('admin/index/login/tip_sys')}</h3>
                     </div>
+                    <!-- 账号输入框 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('account')}：</label>
                         <div class="layui-input-block">
@@ -63,6 +167,7 @@
                                 placeholder="" autocomplete="on" maxlength="20" />
                         </div>
                     </div>
+                    <!-- 密码输入框 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('pass')}：</label>
                         <div class="layui-input-block">
@@ -71,17 +176,58 @@
                                 placeholder="" maxlength="20" />
                         </div>
                     </div>
+                    <!--
+                    ============================================================
+                    验证码输入区域 (PC端)
+                    ============================================================
+
+                    【条件渲染】
+                    只有当 maccms.app.admin_login_verify != '0' 时才显示验证码
+                    配置位置: application/extra/maccms.php → app.admin_login_verify
+
+                    【验证码图片请求】
+                    src="__ROOT__/index.php/verify/index.html"
+                    - __ROOT__: 网站根路径模板变量
+                    - 请求: GET /index.php/verify/index.html
+                    - 路由: index模块 → Verify控制器 → index方法
+                    - 处理: Verify::index() → Captcha->entry()
+
+                    【刷新机制】
+                    onclick="this.src = this.src+'?'"
+                    - 点击时在URL后追加'?'字符
+                    - URL变化触发浏览器重新请求
+                    - 服务端生成新验证码并覆盖Session
+
+                    【验证码配置】
+                    文件: application/extra/captcha.php
+                    - codeSet  : '1234567890'  (只用数字)
+                    - length   : 4             (4位验证码)
+                    - fontSize : 16            (字体16px)
+                    - useNoise : false         (无杂点)
+                    - useCurve : false         (无干扰线)
+                    ============================================================
+                    -->
                     {if condition="$GLOBALS['config']['app']['admin_login_verify'] neq '0'"}
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('verify')}：</label>
                         <div class="layui-input-block">
+                            <!-- 验证码图标 -->
                             <img class="fix-icon" src="__STATIC__/images/signin_ic_code.png" alt="" srcset="">
+                            <!-- 验证码输入框: type="number"限制数字, max="9999"限制4位 -->
                             <input type="number" name="verify" class="layui-input" lay-verify="verify" placeholder=""
-                                maxlength="4" max="9999" /><img id="verify_img"
+                                maxlength="4" max="9999" />
+                            <!--
+                            验证码图片
+                            - id="verify_img": JS选中刷新用
+                            - src: 验证码生成URL
+                            - onclick: 点击刷新
+                            -->
+                            <img id="verify_img"
                                 src="__ROOT__/index.php/verify/index.html" onclick="this.src = this.src+'?'">
                         </div>
                     </div>
                     {/if}
+                    <!-- PC端提交按钮: lay-filter="sub" -->
                     <button type="button" class="layui-btn btn-submit pc-submit" lay-submit=""
                         lay-filter="sub">{:lang('admin/index/login/btn_submit')}</button>
                 </form>
@@ -98,6 +244,14 @@
             </div>
         </div>
     </div>
+
+    <!--
+    ============================================================
+    移动端登录表单 (屏幕宽度 < 1024px 时显示)
+    ============================================================
+    lg:hidden: 大屏时隐藏，小屏时显示
+    独立的表单，使用 lay-filter="sub1" 监听
+    -->
     <div class="lg:hidden pb-20 pt-10">
         <div class="w-full flex flex-col">
             <div class="text-[32px] text-center leading-9 text-[#40CC92] font-medium">
@@ -108,6 +262,7 @@
                     <div class="layui-form-item mt-[20px] text-center">
                         <h3 class="font-medium text-lg">{:lang('admin/index/login/tip_sys')}</h3>
                     </div>
+                    <!-- 账号输入框 (移动端) -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('account')}：</label>
                         <div class="layui-input-block">
@@ -116,6 +271,7 @@
                                 placeholder="" autocomplete="on" maxlength="20" />
                         </div>
                     </div>
+                    <!-- 密码输入框 (移动端) -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('pass')}：</label>
                         <div class="layui-input-block">
@@ -124,6 +280,10 @@
                                 placeholder="" maxlength="20" />
                         </div>
                     </div>
+                    <!--
+                    验证码输入区域 (移动端)
+                    与PC端逻辑相同，布局略有不同 (flex gap-5)
+                    -->
                     {if condition="$GLOBALS['config']['app']['admin_login_verify'] neq '0'"}
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('verify')}：</label>
@@ -131,11 +291,13 @@
                             <img class="fix-icon" src="__STATIC__/images/signin_ic_code.png" alt="" srcset="">
                             <input type="number" name="verify" class="layui-input" lay-verify="verify" placeholder=""
                                 maxlength="4" max="9999" />
+                            <!-- 移动端验证码图片 (共用同一个 id，刷新时两个都会更新) -->
                             <img id="verify_img" src="__ROOT__/index.php/verify/index.html"
                                 onclick="this.src = this.src+'?'">
                         </div>
                     </div>
                     {/if}
+                    <!-- 移动端提交按钮: lay-filter="sub1" -->
                     <button type="button" class="layui-btn btn-submit w-full" lay-submit=""
                         lay-filter="sub1">{:lang('admin/index/login/btn_submit')}</button>
                 </form>
@@ -156,24 +318,56 @@
     <script type="text/javascript" src="__STATIC__/layui/layui.js"></script>
     <script type="text/javascript" src="__STATIC__/js/admin_common.js"></script>
     <script type="text/javascript">
+        /**
+         * ============================================================
+         * 登录页面 JavaScript 逻辑
+         * ============================================================
+         *
+         * 【功能概述】
+         * 1. 前端表单验证 (账号、密码、验证码非空检测)
+         * 2. AJAX 提交登录请求
+         * 3. 处理登录结果 (成功跳转/失败提示)
+         * 4. 键盘快捷操作 (回车切换焦点/提交)
+         *
+         * 【响应式设计】
+         * - PC端表单: lay-filter="sub"
+         * - 移动端表单: lay-filter="sub1"
+         * 两个表单使用相同的验证和提交逻辑
+         *
+         * 【使用技术】
+         * - Layui form 模块: 表单验证和提交
+         * - Layui layer 模块: 弹出层提示
+         * - jQuery: DOM 操作和 AJAX
+         *
+         * ============================================================
+         */
         layui.use(['form', 'layer'], function () {
-            // 操作对象
-            var form = layui.form
-                , layer = layui.layer
-                , $ = layui.jquery;
+            // ============================================================
+            // 【初始化】获取 Layui 模块对象
+            // ============================================================
+            var form = layui.form      // 表单模块
+                , layer = layui.layer   // 弹出层模块
+                , $ = layui.jquery;     // jQuery (Layui 内置)
 
-            // 验证
+            // ============================================================
+            // 【前端验证规则】定义表单字段验证
+            // ============================================================
+            // lay-verify 属性对应的验证函数
+            // 返回字符串表示验证失败，返回空/undefined表示验证通过
             form.verify({
+                // 账号验证: 检查是否为空
                 admin_name: function (value) {
                     if (value == "") {
                         return "{:lang('admin/index/login/verify_no')}";
                     }
                 },
+                // 密码验证: 检查是否为空
                 admin_pwd: function (value) {
                     if (value == "") {
                         return "{:lang('admin/index/login/verify_pass')}";
                     }
                 },
+                // 验证码验证: 检查是否为空
                 verify: function (value) {
                     if (value == "") {
                         return "{:lang('admin/index/login/verify_verify')}";
@@ -181,21 +375,47 @@
                 }
             });
 
-            // 提交监听
+            // ============================================================
+            // 【PC端表单提交】监听 lay-filter="sub"
+            // ============================================================
+            // 【AJAX 登录流程】
+            // 1. 显示"请稍候"提示
+            // 2. POST 请求发送到 admin/index/login
+            // 3. 请求数据: {admin_name, admin_pwd, verify}
+            // 4. 后端验证:
+            //    - Index::login() → model('Admin')->login($data)
+            //    - 验证码校验: captcha_check($data['verify'])
+            //    - 密码校验: MD5($admin_pwd) == 数据库存储值
+            // 5. 返回 JSON: {code: 1/错误码, msg: '提示信息'}
             form.on('submit(sub)', function (data) {
+                // 显示加载提示
                 layer.msg("{:lang('wait_submit')}", { time: 500000 });
+
+                // AJAX POST 请求
                 $.post("{:url('index/login')}", data.field, function (r) {
+                    // 登录成功: 跳转后台首页
                     if (r.code == 1) {
                         location.href = "{:url('index/index')}";
                     }
+                    // 登录失败: 显示错误 + 刷新验证码
+                    // 常见错误码:
+                    //   1001: 参数错误
+                    //   1002: 验证码错误
+                    //   1003: 账号或密码错误
+                    //   1004: 更新登录信息失败
                     else {
                         layer.msg(r.msg, { time: 1800 });
+                        // 刷新验证码 (验证码一次性使用)
                         $('#verify_img').click();
                     }
                 });
-                return false;
+                return false; // 阻止表单默认提交
             });
-            // 提交监听
+
+            // ============================================================
+            // 【移动端表单提交】监听 lay-filter="sub1"
+            // ============================================================
+            // 逻辑与PC端完全相同
             form.on('submit(sub1)', function (data) {
                 layer.msg("{:lang('wait_submit')}", { time: 500000 });
                 $.post("{:url('index/login')}", data.field, function (r) {
@@ -210,15 +430,21 @@
                 return false;
             });
 
+            // ============================================================
+            // 【键盘操作】回车键快捷操作
+            // ============================================================
+            // 提升用户体验：在输入框按回车自动切换到下一个输入框
 
+            // 账号输入框: 按回车 → 焦点移到密码框
             $("input[name='admin_name']").bind('keypress', function (event) {
-                if (event.keyCode == "13") {
+                if (event.keyCode == "13") {  // 13 = Enter 键
                     if ($("input[name='admin_name']").val() != '') {
                         $("input[name='admin_pwd']").focus();
                     }
                 }
             });
 
+            // 密码输入框: 按回车 → 焦点移到验证码框
             $("input[name='admin_pwd']").bind('keypress', function (event) {
                 if (event.keyCode == "13") {
                     if ($("input[name='admin_pwd']").val() != '') {
@@ -227,11 +453,12 @@
                 }
             });
 
+            // 验证码输入框: 按回车 → 触发PC端登录按钮
             $("input[name='verify']").bind('keypress', function (event) {
                 if (event.keyCode == "13") {
                     if ($("input[name='verify']").val() != '') {
+                        // 触发PC端提交按钮 (.pc-submit)
                         $('.pc-submit').click();
-                        // form.submit();
                     }
                 }
             });
