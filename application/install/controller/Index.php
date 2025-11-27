@@ -563,12 +563,35 @@ class Index extends Controller
         // ============================================================
         // 【生成安装锁文件】
         // 创建后将阻止重复安装 (index.php 会检测此文件)
+        // 文件路径: application/data/install/install.lock
+        // 文件内容: 安装完成的时间戳
         // ============================================================
         file_put_contents(APP_PATH.'data/install/install.lock', date('Y-m-d H:i:s'));
 
-        // 获取站点根目录，跳转到后台
+        // ============================================================
+        // 【安装成功 - 跳转到后台管理页面】
+        // ============================================================
+        //
+        // 获取站点根目录路径:
+        // request()->baseFile() 返回当前脚本路径，如 "/install.php"
+        // preg_replace 移除 "install.php"，得到根目录 "/"
+        //
+        // 跳转目标: {根目录}/admin.php
+        // 例如:
+        //   - 根目录安装: http://localhost:8080/admin.php
+        //   - 子目录安装: http://localhost:8080/cms/admin.php
+        //
+        // $this->success() 方法说明:
+        //   - 第一个参数: 提示消息 "安装成功"
+        //   - 第二个参数: 跳转URL (3秒后自动跳转)
+        //   - 返回一个带有倒计时的成功页面，然后跳转到后台
+        //
+        // 跳转后的页面: admin.php → 后台登录页面
+        //   - 用户使用刚才设置的管理员账号密码登录
+        //   - 登录成功进入后台管理界面
+        // ============================================================
         $root_dir = request()->baseFile();
-        $root_dir  = preg_replace(['/install.php$/'], [''], $root_dir);
+        $root_dir = preg_replace(['/install.php$/'], [''], $root_dir);
 
         // 安装成功，跳转到 admin.php 后台管理页面
         return $this->success(lang('install/is_ok'), $root_dir.'admin.php');
