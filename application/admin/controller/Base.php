@@ -110,7 +110,7 @@ class Base extends All
             // 返回值格式:
             // - 已登录: ['code' => 1, 'msg' => 'ok', 'info' => 管理员信息数组]
             // - 未登录: ['code' => 1001, 'msg' => '请先登录']
-            $res = model('Admin')->checkLogin2();
+            $res = model('Admin')->checkLogin();
 
             if ($res['code'] > 1) {
                 // ★ 未登录 → 重定向到登录页面
