@@ -267,25 +267,79 @@ class Index extends Base
             }
         }
 
+        // ============================================================
+        // 【快捷菜单解析】将自定义菜单添加到左侧导航
+        // ============================================================
+        //
+        // 【功能说明】
+        // 读取快捷菜单配置，解析后添加到后台左侧导航栏
+        // 显示在"系统"菜单组 ($menus[1]) 的子菜单中
+        //
+        // 【配置来源】
+        // 1. 新版: application/extra/quickmenu.php (PHP数组格式)
+        // 2. 旧版: application/data/config/quickmenu.txt (文本格式)
+        //
+        // 【配置格式】
+        // 每行一个菜单项: 菜单名称,链接地址
+        // 例如: 视频管理,vod/data
+        //
+        // 【显示位置】
+        // 快捷菜单显示在"系统"菜单组的最下方
+        // 位置索引从13开始 (13=标题, 14+=菜单项)
+        //
         $quickmenu = config('quickmenu');
         if (empty($quickmenu)) {
+            // 兼容旧版: 从文本文件读取
             $quickmenu = mac_read_file(APP_PATH . 'data/config/quickmenu.txt');
+            // 按回车符分割为数组
             $quickmenu = explode(chr(13), $quickmenu);
         }
+
+        // 如果有配置快捷菜单
         if (!empty($quickmenu)) {
+            // --------------------------------------------------------
+            // 添加快捷导航标题 (不可点击的分组标题)
+            // --------------------------------------------------------
+            // 位置: $menus[1]['sub'][13]
+            // 'javascript:void(0);return false;' 使链接不可点击
             $menus[1]['sub'][13] = ['name' => lang('admin/index/quick_tit'), 'url' => 'javascript:void(0);return false;', 'controller' => '', 'action' => ''];
 
+            // --------------------------------------------------------
+            // 遍历配置，添加各个快捷菜单项
+            // --------------------------------------------------------
             foreach ($quickmenu as $k => $v) {
+                // 跳过空行
                 if (empty($v)) {
                     continue;
                 }
+
+                // 解析菜单项: "菜单名称,链接地址"
+                // $one[0] = 菜单名称
+                // $one[1] = 链接地址
                 $one = explode(',', trim($v));
+
+                // --------------------------------------------------------
+                // 链接类型判断与处理
+                // --------------------------------------------------------
+                // 根据链接前缀判断类型，决定是否需要转换URL
+                //
                 if (substr($one[1], 0, 4) == 'http' || substr($one[1], 0, 2) == '//') {
+                    // 【远程地址】直接使用，无需处理
+                    // 例如: http://www.baidu.com/ 或 //www.maccms.la/
                 } elseif (substr($one[1], 0, 1) == '/') {
+                    // 【插件文件/绝对路径】直接使用
+                    // 例如: /application/xxxx.html
                 } elseif (strpos($one[1], '###') !== false || strpos($one[1], 'javascript:') !== false) {
+                    // 【分隔符或JavaScript】直接使用
+                    // 例如: ### (分隔线) 或 javascript:alert('test')
                 } else {
+                    // 【系统模块】需要通过url()函数转换为完整URL
+                    // 例如: art/data → admin.php/art/data.html
                     $one[1] = url($one[1]);
                 }
+
+                // 添加菜单项到导航
+                // 位置从14开始递增
                 $menus[1]['sub'][14 + $k] = ['name' => $one[0], 'url' => $one[1], 'controller' => '', 'action' => ''];
             }
         }
@@ -406,32 +460,135 @@ class Index extends Base
         return $this->fetch('admin@index/welcome');
     }
 
+    /**
+     * ============================================================
+     * 快捷菜单配置 (自定义菜单)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 允许管理员自定义后台左侧导航栏的快捷菜单项
+     * 可以添加常用功能入口、外部链接、分隔符等
+     *
+     * 【访问路径】
+     * GET  admin.php/index/quickmenu  → 显示配置页面
+     * POST admin.php/index/quickmenu  → 保存配置
+     *
+     * 【菜单配置格式】
+     * 每行一个菜单项，格式: 菜单名称,链接地址
+     *
+     * 【支持的链接类型】
+     * ┌─────────────────┬──────────────────────────────────────────┐
+     * │ 类型             │ 示例                                      │
+     * ├─────────────────┼──────────────────────────────────────────┤
+     * │ 远程地址         │ 更新日志,//www.maccms.la/changelog.html   │
+     * │ 远程地址(http)   │ 百度,http://www.baidu.com/                │
+     * │ 插件文件         │ 自定义插件,/application/xxxx.html         │
+     * │ 系统模块         │ 文章管理,art/data                         │
+     * │ 分隔符           │ 分隔线,###                                │
+     * │ JavaScript      │ 测试,javascript:alert('test')            │
+     * └─────────────────┴──────────────────────────────────────────┘
+     *
+     * 【配置示例】
+     * 视频管理,vod/data
+     * 文章管理,art/data
+     * ---分隔线---,###
+     * 清除缓存,index/clear
+     * 官方文档,//www.maccms.la/doc/
+     *
+     * 【存储位置】
+     * 配置保存到: application/extra/quickmenu.php
+     * 格式为PHP数组，通过 config('quickmenu') 读取
+     *
+     * 【兼容旧版】
+     * 同时支持旧版配置文件: application/data/config/quickmenu.txt
+     *
+     * 【显示位置】
+     * 配置的菜单项会显示在后台左侧导航栏的"系统"菜单组下方
+     * 标题为"快捷导航" (参见 index() 方法中的菜单解析代码)
+     *
+     * 【模板位置】
+     * application/admin/view_new/index/quickmenu.html
+     *
+     * 【相关文件】
+     * - application/extra/quickmenu.php   : 配置存储文件
+     * - application/admin/common/auth.php : 菜单结构定义
+     * - application/lang/zh-cn.php        : 语言包(格式说明)
+     *
+     * @return mixed 配置页面HTML 或 JSON响应
+     */
     public function quickmenu()
     {
+        // ============================================================
+        // 【POST请求】保存快捷菜单配置
+        // ============================================================
         if (Request()->isPost()) {
+            // 获取所有POST参数
             $param = input();
+
+            // --------------------------------------------------------
+            // Token验证 (防止CSRF攻击)
+            // --------------------------------------------------------
+            // 表单中包含隐藏字段 __token__，提交时验证有效性
             $validate = \think\Loader::validate('Token');
             if (!$validate->check($param)) {
                 return $this->error($validate->getError());
             }
+
+            // --------------------------------------------------------
+            // 处理菜单配置文本
+            // --------------------------------------------------------
+            // 从文本框获取配置内容
             $quickmenu = input('post.quickmenu');
+
+            // 去除换行符 LF (chr(10) = \n)
+            // 保留回车符 CR (chr(13) = \r) 作为分隔符
+            // Windows: \r\n  Unix: \n  Mac: \r
+            // 这里统一使用 \r 作为行分隔符
             $quickmenu = str_replace(chr(10), '', $quickmenu);
+
+            // 按回车符分割为数组，每行一个菜单项
             $menu_arr = explode(chr(13), $quickmenu);
+
+            // --------------------------------------------------------
+            // 保存配置到PHP文件
+            // --------------------------------------------------------
+            // mac_arr2file() 将数组写入PHP配置文件
+            // 生成格式: return array('菜单1,链接1', '菜单2,链接2', ...);
+            // 文件路径: application/extra/quickmenu.php
             $res = mac_arr2file(APP_PATH . 'extra/quickmenu.php', $menu_arr);
+
             if ($res === false) {
                 return $this->error(lang('save_err'));
             }
             return $this->success(lang('save_ok'));
-        } else {
+        }
+        // ============================================================
+        // 【GET请求】显示快捷菜单配置页面
+        // ============================================================
+        else {
+            // --------------------------------------------------------
+            // 读取现有配置
+            // --------------------------------------------------------
+            // 优先从新版配置文件读取 (application/extra/quickmenu.php)
             $config_menu = config('quickmenu');
+
             if (empty($config_menu)) {
+                // 兼容旧版: 从文本文件读取
+                // 旧版配置路径: application/data/config/quickmenu.txt
                 $quickmenu = mac_read_file(APP_PATH . 'data/config/quickmenu.txt');
             } else {
+                // 新版配置: 将数组转换为文本
+                // array_values() 重新索引数组
+                // join(chr(13), ...) 用回车符连接为多行文本
                 $quickmenu = array_values($config_menu);
                 $quickmenu = join(chr(13), $quickmenu);
             }
+
+            // 赋值到模板 (显示在textarea中)
             $this->assign('quickmenu', $quickmenu);
             $this->assign('title', lang('admin/index/quickmenu/title'));
+
+            // 渲染配置页面
             return $this->fetch('admin@index/quickmenu');
         }
     }
