@@ -52,6 +52,27 @@
             {:lang('admin/index/index/name')}
         </div>
         <ul class="layout-right" lay-filter="">
+            <!-- ============================================================ -->
+            <!-- 【系统更新通知按钮 - 顶部导航栏】 -->
+            <!-- ============================================================ -->
+            <!--
+            【功能说明】
+            当检测到有新版本时，此按钮会显示出来
+            点击后调用 showUpdateDialog() 函数显示更新详情弹窗
+
+            【显示机制】
+            1. 页面加载时默认隐藏 (style="display: none;")
+            2. 通过 AJAX 请求 update.maccms.la 检测新版本
+            3. 如果有新版本，JavaScript 会移除 display:none 并添加 show 类
+            4. 代码位置: 本页面下方的 $.ajax 版本检测代码
+
+            【相关函数】
+            - showUpdateDialog(): 显示更新详情弹窗 (本页面下方定义)
+
+            【相关文件】
+            - application/admin/controller/Update.php : 执行更新的后台控制器
+            - static/css/update.css : 更新按钮和弹窗的样式
+            -->
             <li class="nav-item" id="update-notification" style="display: none;">
                 <a href="javascript:;" onclick="showUpdateDialog()" title="有新版本可用">
                     <i class="layui-icon layui-icon-refresh-1"></i>
@@ -175,8 +196,24 @@
             <ul class="layui-tab-title" id="B_history">
                 <li lay-id="111" class="layui-this">{:lang('admin/index/index/menu_welcome')}</li>
             </ul>
+            <!-- ============================================================ -->
+            <!-- 【底部工具栏】 -->
+            <!-- ============================================================ -->
             <div class="bottom-nav">
                 <ul class="layui-nav layui-layout-right layui-form flex gap-1 items-center h-[60px]" lay-filter="demo">
+                    <!-- ============================================================ -->
+                    <!-- 【系统更新通知按钮 - 底部导航栏】 -->
+                    <!-- ============================================================ -->
+                    <!--
+                    【说明】
+                    与顶部导航栏的更新按钮功能相同，用于响应式布局
+                    在移动端或窄屏幕时，底部导航更易于操作
+
+                    【显示时机】
+                    当检测到新版本时，与顶部按钮同时显示
+                    参见下方 JavaScript 代码:
+                    $('.bottom-nav #update-notification').show().addClass('show');
+                    -->
                     <li class="nav-item" id="update-notification"  style="display: none;">
                         <a href="javascript:;" onclick="showUpdateDialog()" title="有新版本可用">
                             <i class="layui-icon layui-icon-refresh-2"></i>
@@ -326,37 +363,87 @@
         var $ = layui.jquery, element = layui.element, form = layui.form;
         layer = layui.layer;
         console.log("MAC_VERSION", MAC_VERSION)
+
+        // ============================================================
+        // 【系统版本检测 - 自动检查新版本】
+        // ============================================================
+        //
+        // 【功能说明】
+        // 页面加载时自动检测是否有系统新版本可用
+        // 如果有新版本，显示顶部和底部的"更新"按钮
+        //
+        // 【检测流程】
+        // 1. 验证版本变量是否定义 (MAC_VERSION, PHP_VERSION, THINK_VERSION)
+        // 2. 发送 AJAX 请求到官方更新服务器
+        // 3. 解析返回的 JavaScript 代码，提取版本号和更新日志
+        // 4. 比较版本号，如果有新版本则显示更新按钮
+        //
+        // 【更新服务器】
+        // URL: https://update.maccms.la/v10/
+        // 参数:
+        // - c=check : 检查更新
+        // - v       : 当前 MacCMS 版本号
+        // - p       : PHP 版本号
+        // - tp      : ThinkPHP 版本号
+        // - t       : 随机数 (防止缓存)
+        //
+        // 【返回数据格式】
+        // 服务器返回的是 JavaScript 代码字符串，包含:
+        // - var new_v = '2024.1000.4045';        // 最新版本号
+        // - var update_content = [...].join('<br>');  // 更新日志
+        //
+        // 【相关全局变量】
+        // - MAC_VERSION   : 当前系统版本 (来自 config('version.code'))
+        // - PHP_VERSION   : PHP 版本
+        // - THINK_VERSION : ThinkPHP 版本
+        // - window.updateInfo : 存储检测到的新版本信息
+        //
         if (typeof (MAC_VERSION) != 'undefined' && typeof (PHP_VERSION) != 'undefined' && typeof (THINK_VERSION) != 'undefined') {
             $.ajax({
+                // 官方更新检测接口
                 url: `https://update.maccms.la/v10/?c=check&v=${MAC_VERSION}&p=${PHP_VERSION}&tp=${THINK_VERSION}&t=${Math.random()}`,
                 type: 'GET',
                 dataType: 'text', // 确保返回的数据被视为纯文本
                 success: function (response) {
-                    // 使用正则表达式提取update_content
-                    // var updateContentRegex = /var update_content = \[((?:.|\n)*?)\].join\('<br>\');/g;
+                    // --------------------------------------------------------
+                    // 解析更新日志内容 (update_content)
+                    // --------------------------------------------------------
+                    // 使用正则表达式从返回的JS代码中提取 update_content 变量
+                    // 格式: var update_content = ['更新1', '更新2'].join('<br>');
                     var updateContentMatch = response.match(/var update_content\s*=\s*\[(.*?)\]\.join\('<br>'\);/s);
                     console.log("updateContentMatch", updateContentMatch)
                     if (updateContentMatch){
+                        // 执行提取的代码，将 update_content 变量定义到当前作用域
                         eval(updateContentMatch[0])
                     }
 
-                    // 使用正则表达式提取new_v
+                    // --------------------------------------------------------
+                    // 解析最新版本号 (new_v)
+                    // --------------------------------------------------------
+                    // 格式: var new_v = '2024.1000.4045';
                     var newVRegex = /var new_v = '(.*?)';/;
                     var newVMatch = response.match(newVRegex);
                     var newV = newVMatch ? newVMatch[1] : '未找到new_v';
+
+                    // --------------------------------------------------------
+                    // 版本比较 - 判断是否需要更新
+                    // --------------------------------------------------------
+                    // 使用字符串比较 (版本号格式: 年.千位数.四位数)
+                    // 如: '2024.1000.4045' > '2024.1000.4043'
                     if (newV > MAC_VERSION) {
                         // 存储更新信息到全局变量，供showUpdateDialog函数使用
                         window.updateInfo = {
-                            newV: newV,
-                            update_content: update_content,
-                            package: 'maccms10_update'
+                            newV: newV,                    // 新版本号
+                            update_content: update_content, // 更新日志内容
+                            package: 'maccms10_update'      // 更新包名称
                         };
-                        // 显示更新按钮而不是直接弹窗（在两个位置都显示）
+                        // 显示更新按钮（在顶部导航和底部导航两个位置都显示）
                         $('.layout-right #update-notification').show().addClass('show');
                         $('.bottom-nav #update-notification').show().addClass('show');
                     }
                 },
                 error: function (xhr, status, error) {
+                    // 更新检测失败不影响正常使用，仅在控制台输出错误
                     console.error('AJAX请求失败:', error);
                 }
             });
@@ -587,18 +674,52 @@
         });
     }
 
-    // 显示更新对话框的函数
+    // ============================================================
+    // 【显示更新对话框函数】
+    // ============================================================
+    //
+    // 【功能说明】
+    // 当用户点击顶部/底部导航栏的"更新"按钮时调用此函数
+    // 弹出一个 Layui 模态框，显示:
+    // - 新版本号
+    // - 更新日志内容
+    // - 在线升级入口链接
+    // - 离线升级包下载链接
+    //
+    // 【数据来源】
+    // 从 window.updateInfo 全局变量获取更新信息
+    // 该变量在页面加载时由版本检测 AJAX 代码设置 (见上方)
+    //
+    // 【弹窗配置】
+    // - type: 1 (页面层)
+    // - area: PC端 460x638px, 移动端 95%宽度
+    // - skin: 'skin_updae_from' (自定义样式类)
+    // - shadeClose: true (点击遮罩关闭)
+    //
+    // 【升级方式】
+    // 1. 在线升级: 跳转到 admin/update/step1，自动下载并安装
+    // 2. 离线升级: 手动下载 ZIP 包，解压覆盖到网站根目录
+    //
+    // 【相关文件】
+    // - application/admin/controller/Update.php : 处理升级的控制器
+    // - static/css/update.css : 弹窗样式
+    //
     function showUpdateDialog() {
+        // 检查是否有更新信息 (由版本检测代码设置)
         if (!window.updateInfo) {
             layer.msg('没有可用的更新信息', { time: 2000 });
             return;
         }
 
-        var newV = window.updateInfo.newV;
-        var update_content = window.updateInfo.update_content;
-        var package = window.updateInfo.package;
+        // 从全局变量获取更新数据
+        var newV = window.updateInfo.newV;              // 新版本号
+        var update_content = window.updateInfo.update_content;  // 更新日志 HTML
+        var package = window.updateInfo.package;        // 更新包名称
 
-        // js 判断是否移动端
+        // --------------------------------------------------------
+        // 响应式布局处理
+        // --------------------------------------------------------
+        // PC端使用固定宽度，移动端使用百分比宽度
         var area = ['460px', '638px']
         var agent = navigator.userAgent.toLowerCase();
         var isMobile = /android|iphone|ipod|ipad|ios/.test(agent)
@@ -606,31 +727,42 @@
             area = ['95%', '638px']
         }
 
+        // --------------------------------------------------------
+        // 使用 Layui layer.open 打开更新弹窗
+        // --------------------------------------------------------
         layer.open({
-            type: 1,
-            area, // 宽高
-            title: false, // 不显示标题栏
-            closeBtn: 0,
-            btn: ['关闭'],
-            btnAlign: 'c',
-            shadeClose: true, // 点击遮罩关闭层
-            skin: 'skin_updae_from', // 加上边框
+            type: 1,           // 页面层 (1=页面层, 2=iframe层)
+            area,              // 弹窗尺寸 [宽, 高]
+            title: false,      // 不显示标题栏
+            closeBtn: 0,       // 不显示关闭按钮 (使用底部按钮关闭)
+            btn: ['关闭'],     // 底部按钮
+            btnAlign: 'c',     // 按钮居中对齐
+            shadeClose: true,  // 点击遮罩层关闭弹窗
+            skin: 'skin_updae_from',  // 自定义样式类 (见 update.css)
             content: `
                 <div class="updae_from">
+                    <!-- 背景装饰图 -->
                     <img class="update_bg" src="__STATIC__/images/upgrade_pop_rocket_bg@2x.png" alt="" srcset="">
                     <div class="update_content">
+                    <!-- 标题区域: 显示新版本号 -->
                     <div class="update_title">
                         <p>更新提示</p>
                         <p>${newV}>>></p>
                     </div>
+                    <!-- 官方链接 -->
                     <a class="group_link" target="_blank" href="https://t.me/maccms_channel">Telegram群   https://t.me/maccms_channel</a>
                     <a class="group_link" target="_blank"
                         href="https://github.com/magicblack">Github源码   https://github.com/magicblack</a>
+                    <!-- 升级操作区域 -->
                     <div class="flex-col flex my-[20px] gap-1">
+                        <!-- 在线升级入口 -->
+                        <!-- class="j-iframe": 在 iframe 弹窗中打开 -->
+                        <!-- data-href: 跳转到 Update 控制器的 step1 方法 -->
                         <a class="j-iframe text-[#53D19C]" title="点击进入升级"
                         data-href="${ADMIN_PATH}/admin/update/step1.html?file=${package}">
                         【点击进入在线升级】
                         </a>
+                        <!-- 离线升级包下载 (两个镜像源) -->
                         <a href="https://github.com/magicblack/maccms_down/raw/master/maccms10_update.zip">
                         【下载离线升级包线路1】
                         </a>
@@ -638,6 +770,7 @@
                         【下载离线升级包线路2】
                         </a>
                     </div>
+                    <!-- 更新日志列表 -->
                     <div class="update_list">
                         ${update_content}
                     </div>
