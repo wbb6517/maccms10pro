@@ -68,8 +68,48 @@ class Init
             config('dispatch_error_tmpl','public/jump');
         }
 
+        // ============================================================
+        // 【模板路径配置 - 核心设置】
+        // ============================================================
+        // 设置 ThinkPHP 模板引擎的基础路径
+        //
+        // 【路径拼接规则】
+        // $TMP_TEMPLATEDIR = maccms.site.template_dir (默认 'default')
+        // $TMP_HTMLDIR     = maccms.site.html_dir     (默认 'html')
+        // 结果: template/default/html/
+        //
+        // 【控制器调用流程】
+        // Index.php:137  → $this->label_fetch('index/index')
+        // All.php:245    → $this->fetch('index/index')
+        // Think.php:150  → return view_path + template + '.html'
+        //                → template/default/html/index/index.html
+        //
+        // 【关键代码位置】
+        // thinkphp/library/think/view/driver/Think.php:150
+        // return $path . ltrim($template, '/') . '.' . $this->config['view_suffix'];
+        // ============================================================
         config('template.view_path', 'template/' . $TMP_TEMPLATEDIR .'/' . $TMP_HTMLDIR .'/');
 
+        // ============================================================
+        // 【后台模板路径处理】
+        // ============================================================
+        // 后台入口时，清空 view_path 让 ThinkPHP 使用默认规则
+        //
+        // 【为什么清空?】
+        // Think.php:44-46 构造函数中:
+        //   if (empty($this->config['view_path'])) {
+        //       $this->config['view_path'] = App::$modulePath . 'view' . DS;
+        //   }
+        // 清空后，后台模板路径变为: application/admin/view/
+        //
+        // 【前台 vs 后台对比】
+        // ┌──────────┬─────────────────────────────────────────────┐
+        // │ 入口      │ 模板路径                                    │
+        // ├──────────┼─────────────────────────────────────────────┤
+        // │ index.php │ template/default/html/index/index.html     │
+        // │ admin.php │ application/admin/view/index/index.html    │
+        // └──────────┴─────────────────────────────────────────────┘
+        // ============================================================
         if(ENTRANCE=='admin'){
             if(!file_exists('./template/' . $TMP_TEMPLATEDIR .'/' . $TMP_HTMLDIR .'/')){
                 config('template.view_path','');

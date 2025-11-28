@@ -41,6 +41,19 @@ class Think
     public function __construct($config = [])
     {
         $this->config = array_merge($this->config, $config);
+        // ============================================================
+        // 【默认模板路径设置】
+        // ============================================================
+        // 如果 view_path 为空，使用 ThinkPHP 默认规则:
+        // App::$modulePath . 'view' . DS
+        // 例如: application/admin/view/
+        //
+        // 【MacCMS 前后台差异】
+        // - 前台: Init.php:91 设置 view_path = 'template/default/html/'
+        //        此处条件不满足，保持前台模板路径
+        // - 后台: Init.php:115 清空 view_path = ''
+        //        此处条件满足，设置为 application/admin/view/
+        // ============================================================
         if (empty($this->config['view_path'])) {
             $this->config['view_path'] = App::$modulePath . 'view' . DS;
         }
@@ -111,6 +124,27 @@ class Think
 
     /**
      * 自动定位模板文件
+     * ============================================================
+     * 【模板路径解析 - 核心方法】
+     * ============================================================
+     *
+     * 【调用示例】
+     * $this->fetch('index/index')
+     *   ↓
+     * parseTemplate('index/index')
+     *   ↓
+     * return 'template/default/html/' + 'index/index' + '.html'
+     *   ↓
+     * 'template/default/html/index/index.html'
+     *
+     * 【路径拼接公式】
+     * 最终路径 = $this->config['view_path'] + $template + '.' + view_suffix
+     *
+     * 【view_path 来源】
+     * - 前台: Init.php:91 设置为 'template/default/html/'
+     * - 后台: 构造函数设置为 'application/admin/view/'
+     *
+     * ============================================================
      * @access private
      * @param string $template 模板文件规则
      * @return string
@@ -129,6 +163,9 @@ class Think
             $module = isset($module) ? $module : $request->module();
             $path   = $this->config['view_base'] . ($module ? $module . DS : '');
         } else {
+            // 【关键】使用 view_path 作为模板基础路径
+            // 前台: template/default/html/
+            // 后台: application/admin/view/
             $path = isset($module) ? APP_PATH . $module . DS . 'view' . DS : $this->config['view_path'];
         }
 
@@ -147,6 +184,8 @@ class Think
         } else {
             $template = str_replace(['/', ':'], $depr, substr($template, 1));
         }
+        // 【最终拼接】 path + template + '.html'
+        // 例如: template/default/html/ + index/index + .html
         return $path . ltrim($template, '/') . '.' . ltrim($this->config['view_suffix'], '.');
     }
 
