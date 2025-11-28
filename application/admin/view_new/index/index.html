@@ -365,10 +365,14 @@
         console.log("MAC_VERSION", MAC_VERSION)
 
         // ============================================================
-        // 【系统版本检测 - 自动检查新版本】
+        // 【系统版本检测 - 已禁用】
         // ============================================================
         //
-        // 【功能说明】
+        // 【禁用说明】
+        // 系统更新检测功能已被禁用，更新按钮将始终不显示
+        // 如需恢复，删除下方的 if(false) 条件即可
+        //
+        // 【原功能说明】
         // 页面加载时自动检测是否有系统新版本可用
         // 如果有新版本，显示顶部和底部的"更新"按钮
         //
@@ -398,7 +402,8 @@
         // - THINK_VERSION : ThinkPHP 版本
         // - window.updateInfo : 存储检测到的新版本信息
         //
-        if (typeof (MAC_VERSION) != 'undefined' && typeof (PHP_VERSION) != 'undefined' && typeof (THINK_VERSION) != 'undefined') {
+        // todo【禁用开关】设置为 false 禁用更新检测，设置为 true 恢复
+        if (false && typeof (MAC_VERSION) != 'undefined' && typeof (PHP_VERSION) != 'undefined' && typeof (THINK_VERSION) != 'undefined') {
             $.ajax({
                 // 官方更新检测接口
                 url: `https://update.maccms.la/v10/?c=check&v=${MAC_VERSION}&p=${PHP_VERSION}&tp=${THINK_VERSION}&t=${Math.random()}`,
