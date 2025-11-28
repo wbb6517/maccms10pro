@@ -308,20 +308,101 @@ class Index extends Base
         return $this->fetch('admin@index/index');
     }
 
+    /**
+     * ============================================================
+     * 后台欢迎页/仪表盘 (Dashboard)
+     * ============================================================
+     *
+     * 【访问路径】
+     * admin.php/index/welcome
+     *
+     * 【功能说明】
+     * 这是管理员登录后看到的第一个页面（仪表盘）
+     * 显示系统概览、统计数据、服务器状态等信息
+     *
+     * 【页面结构】
+     * ┌─────────────────────────────────────────────────────────────┐
+     * │  顶部卡片区 (4个统计卡片)                                     │
+     * │  ┌──────────┬──────────┬──────────┬──────────┐              │
+     * │  │今日访客数 │ 今日收入  │ 上次登录  │ 登录IP   │              │
+     * │  └──────────┴──────────┴──────────┴──────────┘              │
+     * ├─────────────────────────────────────────────────────────────┤
+     * │  三栏信息区                                                   │
+     * │  ┌────────────┬────────────┬────────────┐                   │
+     * │  │ 系统状态    │ 磁盘空间    │ 用户注册统计 │                   │
+     * │  │ CPU/内存   │ 使用占比    │ 7日注册量   │                   │
+     * │  └────────────┴────────────┴────────────┘                   │
+     * ├─────────────────────────────────────────────────────────────┤
+     * │  访问统计图表 (7日访问趋势)                                    │
+     * ├─────────────────────────────────────────────────────────────┤
+     * │  爬虫统计图表 (Google/Baidu/Sogou等)                          │
+     * └─────────────────────────────────────────────────────────────┘
+     *
+     * 【数据来源】
+     * - spider_data    : botlist() 方法，统计搜索引擎爬虫访问次数
+     * - os_data        : get_system_status() 方法，获取服务器状态
+     * - dashboard_data : getAdminDashboardData() 方法，获取业务统计
+     *
+     * 【模板变量】
+     * ┌────────────────┬──────────────────────────────────────────┐
+     * │ 变量名          │ 说明                                      │
+     * ├────────────────┼──────────────────────────────────────────┤
+     * │ $spider_data   │ 爬虫统计数据 (7天内各搜索引擎访问次数)      │
+     * │ $os_data       │ 系统状态 (CPU/内存/磁盘使用率)             │
+     * │ $version       │ 系统版本信息                              │
+     * │ $update_sql    │ 是否有数据库更新文件                       │
+     * │ $dashboard_data│ 仪表盘统计 (用户数/访问量/收入等)          │
+     * │ $admin         │ 当前管理员信息 (登录时间/IP等)             │
+     * └────────────────┴──────────────────────────────────────────┘
+     *
+     * 【模板位置】
+     * application/admin/view_new/index/welcome.html
+     *
+     * 【前端技术】
+     * - ApexCharts : 图表库，用于绑制访问趋势、爬虫统计图表
+     * - TailwindCSS: 响应式布局
+     * - Layui      : 日期选择器、表单组件
+     *
+     * @return string 渲染后的HTML页面
+     */
     public function welcome()
     {
+        // 获取系统版本信息
+        // 配置位置: application/extra/version.php
         $version = config('version');
+
+        // 检查是否存在数据库更新文件
+        // 如果存在，页面会显示"请更新数据库"提示
         $update_sql = file_exists('./application/data/update/database.php');
 
+        // ============================================================
+        // 【数据准备】获取各类统计数据
+        // ============================================================
+
+        // 爬虫统计数据 - 统计7天内各搜索引擎的访问次数
+        // 数据来源: runtime/log/bot/{日期}.txt
         $this->assign('spider_data', $this->botlist());
+
+        // 服务器状态 - CPU/内存/磁盘使用情况
+        // 支持 Windows/Linux/FreeBSD 系统
         $this->assign('os_data', $this->get_system_status());
+
         $this->assign('version', $version);
         $this->assign('update_sql', $update_sql);
+
+        // 当前语言设置
         $this->assign('mac_lang', config('default_lang'));
+
+        // 仪表盘业务数据 - 用户数、访问量、收入、趋势图数据
         $this->assign('dashboard_data', $this->getAdminDashboardData());
 
+        // 当前管理员信息 (上次登录时间、IP等)
+        // $this->_admin 在 Base 控制器中初始化
         $this->assign('admin', $this->_admin);
+
         $this->assign('title', lang('admin/index/welcome/title'));
+
+        // 渲染欢迎页模板
         return $this->fetch('admin@index/welcome');
     }
 
@@ -464,40 +545,88 @@ class Index extends Base
         return $this->fetch('admin@public/' . $tpl);
     }
 
+    /**
+     * ============================================================
+     * 获取服务器系统状态
+     * ============================================================
+     *
+     * 【功能说明】
+     * 获取服务器的 CPU、内存、磁盘使用情况
+     * 支持 Windows、Linux、FreeBSD 等操作系统
+     *
+     * 【返回数据结构】
+     * [
+     *     'os_name'    => 'WINDOWS',              // 操作系统名称
+     *     'cpu_usage'  => 25.5,                   // CPU 使用率 (%)
+     *     'mem_usage'  => 60.2,                   // 内存使用率 (%)
+     *     'mem_total'  => 16384,                  // 总内存 (MB)
+     *     'mem_used'   => 9861.12,                // 已用内存 (MB)
+     *     'disk_datas' => [                       // 磁盘信息
+     *         'C' => [used_gb, total_gb, usage%],
+     *         'D' => [used_gb, total_gb, usage%],
+     *     ]
+     * ]
+     *
+     * 【Windows 系统】
+     * - CPU: 通过 WMI (COM) 或 wmic 命令获取
+     * - 内存: 通过 WMI 或 wmic 命令获取
+     * - 磁盘: 通过 disk_total_space/disk_free_space 函数获取
+     *
+     * 【Linux/FreeBSD 系统】
+     * - CPU: 通过 top、/proc/stat、sysctl 获取
+     * - 内存: 通过 free、/proc/meminfo、sysctl 获取
+     * - 磁盘: 通过 disk_total_space/disk_free_space 函数获取
+     *
+     * 【AJAX 调用】
+     * 前端页面通过 AJAX 定时调用此方法刷新数据:
+     * GET admin.php/index/get_system_status.html
+     *
+     * @return array 系统状态数据
+     */
     public function get_system_status()
     {
-        //判斷系統
+        // 判斷系統
         $os_name = PHP_OS;
         $os_data = [];
         $os_data['os_name'] = $os_name;
-        
+
         if (strtoupper(substr($os_name, 0, 3)) === 'WIN') {
-            // Windows系统
+            // ============================================================
+            // 【Windows 系统】
+            // ============================================================
             $os_data['os_name'] = 'WINDOWS';
+
+            // 获取所有磁盘信息 (C:, D:, E: ...)
             $os_data['disk_datas'] = $this->get_spec_disk('all');
+
+            // 获取 CPU 使用率 (通过 WMI 或 wmic 命令)
             $os_data['cpu_usage'] = $this->getCpuUsage();
+
+            // 获取内存使用情况
             $mem_arr = $this->getMemoryUsage();
             $os_data['mem_usage'] = $mem_arr['usage'];
             $os_data['mem_total'] = round($mem_arr['TotalVisibleMemorySize'] / 1024, 2);
             $os_data['mem_used'] = $os_data['mem_total'] - round($mem_arr['FreePhysicalMemory'] / 1024, 2);
         } else {
-            // Linux和FreeBSD的处理逻辑
+            // ============================================================
+            // 【Linux/FreeBSD 系统】
+            // ============================================================
             $os_data['os_name'] = strtoupper($os_name);
-            
-            // 获取磁盘信息
+
+            // 获取磁盘信息 (根目录 /)
             $totalSpace = 0;
             $freeSpace = 0;
-            
+
             if (function_exists('disk_total_space') && function_exists('disk_free_space')) {
                 $totalSpace = @disk_total_space('/');
                 $freeSpace = @disk_free_space('/');
             }
-            
+
             if ($totalSpace > 0) {
                 $totalSpaceGB = round($totalSpace / (1024 * 1024 * 1024), 2);
                 $freeSpaceGB = round($freeSpace / (1024 * 1024 * 1024), 2);
                 $usedSpaceGB = round($totalSpaceGB - $freeSpaceGB, 2);
-                
+
                 $tmp_disk_data = [];
                 $tmp_disk_data[0] = $usedSpaceGB;
                 $tmp_disk_data[1] = $totalSpaceGB;
@@ -506,11 +635,13 @@ class Index extends Base
             } else {
                 $os_data['disk_datas']['/'] = [0, 0, 0];
             }
-            
-            // 获取内存和CPU信息
+
+            // 获取内存信息 (尝试多种方法: free命令、sysctl、/proc/meminfo)
             $mem_arr = $this->get_unix_server_memory_usage();
+
+            // 获取 CPU 使用率 (尝试多种方法: top、sysctl、/proc/stat)
             $os_data['cpu_usage'] = $this->get_unix_server_cpu_usage();
-            
+
             $os_data['mem_usage'] = $mem_arr['usage'];
             $os_data['mem_used'] = $mem_arr['used'];
             $os_data['mem_total'] = $mem_arr['total'];
@@ -994,71 +1125,152 @@ class Index extends Base
         return null;
     }
 
+    /**
+     * ============================================================
+     * 获取仪表盘统计数据
+     * ============================================================
+     *
+     * 【功能说明】
+     * 获取欢迎页/仪表盘所需的各类业务统计数据
+     * 包括用户统计、访问统计、收入统计、趋势图数据等
+     *
+     * 【返回数据结构】
+     *
+     * ┌──────────────────────────┬────────────────────────────────┐
+     * │ 字段名                    │ 说明                            │
+     * ├──────────────────────────┼────────────────────────────────┤
+     * │ user_count               │ 注册用户总数                     │
+     * │ user_active_count        │ 已审核(激活)用户数               │
+     * │ today_visit_count        │ 今日访客数                       │
+     * │ today_money_get          │ 今日收入金额                     │
+     * │ seven_day_visit_day      │ 近7天访问日期数组 (图表X轴)       │
+     * │ seven_day_visit_count    │ 近7天每日访问量数组 (图表Y轴)     │
+     * │ raise_visit_user_today   │ 今日访问量涨跌幅 (%)             │
+     * │ seven_day_reg_day        │ 近7天注册日期数组 (图表X轴)       │
+     * │ seven_day_reg_count      │ 近7天每日注册量数组 (图表Y轴)     │
+     * │ seven_day_reg_total_count│ 近7天注册总量                    │
+     * │ raise_reg_user_today     │ 今日注册量涨跌幅 (%)             │
+     * └──────────────────────────┴────────────────────────────────┘
+     *
+     * 【数据来源】
+     * - 用户数据: mac_user 表
+     * - 访问数据: mac_visit 表
+     * - 收入数据: mac_order 表 (订单状态=1 已完成)
+     *
+     * 【SQL查询说明】
+     * 使用 FROM_UNIXTIME() 将时间戳转换为日期格式
+     * 604800 = 7天 × 24小时 × 60分钟 × 60秒
+     *
+     * @return array 仪表盘统计数据
+     */
     private function getAdminDashboardData()
     {
         $result = [];
-        //已注册总用户数量
+
+        // ============================================================
+        // 【用户统计】
+        // ============================================================
+
+        // 已注册总用户数量 (所有用户，不论状态)
         $result['user_count'] = model('User')->count();
+        // 格式化为千分位显示 (如: 1,234)
         $result['user_count'] = number_format($result['user_count'], 0, '.', ',');
-        //已审核用户数量
+
+        // 已审核(激活)用户数量 (user_status=1 表示正常状态)
         $result['user_active_count'] = model('User')->where('user_status', 1)->count();
         $result['user_active_count'] = number_format($result['user_active_count'], 0, '.', ',');
 
-        $today_start = strtotime(date('Y-m-d 00:00:00'));
-        $today_end = $today_start + 86399;
-        //本日来客量
+        // ============================================================
+        // 【今日统计】
+        // ============================================================
+
+        // 获取今日时间范围 (00:00:00 - 23:59:59)
+        $today_start = strtotime(date('Y-m-d 00:00:00'));  // 今日0点时间戳
+        $today_end = $today_start + 86399;                  // 今日23:59:59 (86400秒 - 1)
+
+        // 本日来客量 (访问记录表中今日的记录数)
         $result['today_visit_count'] = model('Visit')->where('visit_time', 'between', $today_start . ',' . $today_end)->count();
         $result['today_visit_count'] = number_format($result['today_visit_count'], 0, '.', ',');
-        //本日总入金
-        $result['today_money_get'] = model('Order')->where('order_time', 'between', $today_start . ',' . $today_end)->where('order_status', 1)->sum('order_price');
-        $result['today_money_get'] = number_format($result['today_money_get'], 2, '.', ',');
-        //前七天 每日用户访问数
-        $tmp_arr = Db::query("select FROM_UNIXTIME(visit_time, '%Y-%c-%d' ) days,count(*) count from (SELECT * from ".config('database.prefix')."visit where visit_time >= (unix_timestamp(CURDATE())-604800)) as temp group by days");
-        $result['seven_day_visit_day'] = [];
-        $result['seven_day_visit_count'] = [];
 
+        // 本日总收入 (订单表中今日已完成订单的金额总和)
+        // order_status=1 表示订单已完成/已支付
+        $result['today_money_get'] = model('Order')->where('order_time', 'between', $today_start . ',' . $today_end)->where('order_status', 1)->sum('order_price');
+        // 格式化为金额显示 (保留2位小数，千分位分隔)
+        $result['today_money_get'] = number_format($result['today_money_get'], 2, '.', ',');
+
+        // ============================================================
+        // 【近7天访问趋势】
+        // ============================================================
+
+        // SQL查询: 统计7天内每日访问量
+        // FROM_UNIXTIME(visit_time, '%Y-%c-%d') - 将Unix时间戳转为日期格式
+        // unix_timestamp(CURDATE())-604800 - 7天前的时间戳
+        // GROUP BY days - 按日期分组统计
+        $tmp_arr = Db::query("select FROM_UNIXTIME(visit_time, '%Y-%c-%d' ) days,count(*) count from (SELECT * from ".config('database.prefix')."visit where visit_time >= (unix_timestamp(CURDATE())-604800)) as temp group by days");
+
+        // 初始化图表数据数组
+        $result['seven_day_visit_day'] = [];    // X轴: 日期
+        $result['seven_day_visit_count'] = [];  // Y轴: 访问量
+
+        // 计算今日访问量较昨日的涨跌幅
+        // 公式: (今日量 - 昨日量) / 昨日量 × 100%
         $result['raise_visit_user_today'] = 0;
         if (is_array($tmp_arr) && count($tmp_arr) > 1 && (strtotime(end($tmp_arr)['days']) == strtotime(date('Y-m-d')))) {
+            // 昨日访问量 (倒数第二条记录)
             $yesterday_visit_count = $tmp_arr[count($tmp_arr) - 2]['count'];
+            // 今日访问量 (最后一条记录)
             $lastday_visit_count = end($tmp_arr)['count'];
             if ($yesterday_visit_count != 0) {
+                // 计算涨跌幅百分比
                 $result['raise_visit_user_today'] = number_format((($lastday_visit_count - $yesterday_visit_count) / $yesterday_visit_count) * 100, 2, '.', ',');
             } else {
                 $result['raise_visit_user_today'] = 0;
             }
         }
 
+        // 将查询结果转换为图表所需的数组格式
         foreach ($tmp_arr as $data) {
-            array_push($result['seven_day_visit_day'], $data['days']);
-            array_push($result['seven_day_visit_count'], $data['count']);
+            array_push($result['seven_day_visit_day'], $data['days']);      // 日期
+            array_push($result['seven_day_visit_count'], $data['count']);   // 访问量
         }
 
-        //近七日用户访问总量
+        // 近七日用户访问总量
         $result['seven_day_visit_total_count'] = 0;
         foreach ($result['seven_day_visit_data'] as $k => $value) {
             $result['seven_day_visit_total_count'] = $result['seven_day_visit_total_count'] + $value['count'];
         }
-
         $result['seven_day_visit_total_count'] = number_format($result['seven_day_visit_total_count'], 0, '.', ',');
-        //前七天 每日用户注册数
+
+        // ============================================================
+        // 【近7天注册趋势】
+        // ============================================================
+
+        // SQL查询: 统计7天内每日注册量
+        // user_reg_time: 用户注册时间字段
         $result['seven_day_reg_data'] = Db::query("select FROM_UNIXTIME(user_reg_time, '%Y-%c-%d' ) days,count(*) count from (SELECT * from ".config('database.prefix')."user where user_reg_time >= (unix_timestamp(CURDATE())-604800)) as tmp group by days");
 
-        //近七日用户注册总量
-        $result['seven_day_reg_total_count'] = 0;
-        $result['seven_day_reg_day'] = [];
-        $result['seven_day_reg_count'] = [];
+        // 初始化图表数据数组
+        $result['seven_day_reg_total_count'] = 0;  // 7天注册总量
+        $result['seven_day_reg_day'] = [];         // X轴: 日期
+        $result['seven_day_reg_count'] = [];       // Y轴: 注册量
+
+        // 遍历查询结果，填充图表数据
         foreach ($result['seven_day_reg_data'] as $k => $value) {
-            array_push($result['seven_day_reg_day'], $value['days']);
-            array_push($result['seven_day_reg_count'], $value['count']);
+            array_push($result['seven_day_reg_day'], $value['days']);       // 日期
+            array_push($result['seven_day_reg_count'], $value['count']);    // 注册量
+            // 累加计算7天总量
             $result['seven_day_reg_total_count'] = $result['seven_day_reg_total_count'] + $value['count'];
         }
 
-        //比較前一天的註冊量漲幅
+        // 计算今日注册量较昨日的涨跌幅
         $result['raise_reg_user_today'] = 0;
         if (is_array($result['seven_day_reg_data']) && count($result['seven_day_reg_data']) > 1 && (strtotime(end($result['seven_day_reg_data'])['days']) == strtotime(date('Y-m-d')))) {
+            // 昨日注册量
             $yesterday_reg_count = $result['seven_day_reg_data'][count($result['seven_day_reg_data']) - 2]['count'];
+            // 今日注册量
             $lastday_reg_count = end($result['seven_day_reg_data'])['count'];
             if ($yesterday_reg_count != 0) {
+                // 计算涨跌幅百分比
                 $result['raise_reg_user_today'] = number_format((($lastday_reg_count - $yesterday_reg_count) / $yesterday_reg_count) * 100, 2, '.', ',');
             } else {
                 $result['raise_reg_user_today'] = 0;
@@ -1066,54 +1278,162 @@ class Index extends Base
         }
 
         $result['seven_day_reg_total_count'] = number_format($result['seven_day_reg_total_count'], 0, '.', ',');
+
         return $result;
     }
 
+    /**
+     * ============================================================
+     * 自定义日期范围访问统计 (AJAX接口)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 根据用户选择的日期范围，统计每日访问量
+     * 供前端 ApexCharts 图表动态更新使用
+     *
+     * 【请求方式】
+     * POST admin.php/index/rangeDateDailyVisit
+     *
+     * 【请求参数】
+     * - startDate: 开始日期 (格式: Y-m-d)
+     * - endDate:   结束日期 (格式: Y-m-d)
+     *
+     * 【返回数据】
+     * JSON格式:
+     * {
+     *     "days":  ["2023-11-01", "2023-11-02", ...],  // 日期数组 (X轴)
+     *     "count": [120, 150, 88, ...],                // 访问量数组 (Y轴)
+     *     "sum":   1234                                // 区间访问总量
+     * }
+     *
+     * 【前端调用示例】
+     * $.post('admin.php/index/rangeDateDailyVisit', {
+     *     startDate: '2023-11-01',
+     *     endDate: '2023-11-07'
+     * }, function(data) {
+     *     // 更新图表
+     *     chart.updateSeries([{ data: data.count }]);
+     * });
+     *
+     * @return string JSON格式的访问统计数据
+     */
     public function rangeDateDailyVisit()
     {
-
+        // SQL查询: 统计指定日期范围内每日访问量
+        // strtotime() 将日期字符串转为Unix时间戳
         $range_daily_visit_data = Db::query("select FROM_UNIXTIME(visit_time, '%Y-%c-%d' ) days,count(*) count from (SELECT * from ".config('database.prefix')."visit where visit_time >= " . strtotime($_POST['startDate']) . "&&  visit_time <= " . strtotime($_POST['endDate']) . " ) as temp group by days");
+
         $result = [];
-        $range_visit_day = [];
-        $range_visit_count = [];
-        $range_visit_sum = 0;
+        $range_visit_day = [];    // 日期数组
+        $range_visit_count = [];  // 访问量数组
+        $range_visit_sum = 0;     // 访问总量
+
+        // 遍历查询结果，转换为前端需要的数组格式
         foreach ($range_daily_visit_data as $data) {
             $range_visit_sum = $range_visit_sum + $data['count'];
             array_push($range_visit_day, $data['days']);
             array_push($range_visit_count, $data['count']);
         }
 
-        $result['days'] = $range_visit_day;
-        $result['count'] = $range_visit_count;
-        $result['sum'] = $range_visit_sum;
+        $result['days'] = $range_visit_day;   // X轴数据
+        $result['count'] = $range_visit_count; // Y轴数据
+        $result['sum'] = $range_visit_sum;     // 汇总数据
+
         return json_encode($result);
     }
 
+    /**
+     * ============================================================
+     * 搜索引擎爬虫统计
+     * ============================================================
+     *
+     * 【功能说明】
+     * 统计近7天各搜索引擎爬虫的访问次数
+     * 用于监控网站SEO情况和搜索引擎收录频率
+     *
+     * 【数据来源】
+     * 爬虫日志文件: runtime/log/bot/{日期}.txt
+     *
+     * 【日志记录机制】
+     * 1. 在 application/common/behavior/Begin.php 中检测爬虫
+     * 2. 检测 User-Agent 中的爬虫标识 (Googlebot, Baiduspider等)
+     * 3. 将爬虫访问记录写入对应日期的日志文件
+     *
+     * 【统计的爬虫类型】
+     * ┌──────────────┬────────────────────────────────────┐
+     * │ 爬虫名称      │ User-Agent 标识                    │
+     * ├──────────────┼────────────────────────────────────┤
+     * │ Google       │ Googlebot                          │
+     * │ Baidu        │ Baiduspider                        │
+     * │ Sogou        │ Sogou web spider                   │
+     * │ SOSO         │ Sosospider (腾讯搜搜，已停止)       │
+     * │ Yahoo        │ Yahoo! Slurp                       │
+     * │ MSN/Bing     │ MSNBot, msnbot                     │
+     * │ Sohu         │ Sohu-Search (搜狐)                  │
+     * │ Yodao        │ YodaoBot (有道)                     │
+     * │ Twiceler     │ Twiceler (Cuil搜索引擎爬虫)         │
+     * │ Alexa        │ ia_archiver (Alexa排名爬虫)         │
+     * └──────────────┴────────────────────────────────────┘
+     *
+     * 【返回数据结构】
+     * [
+     *     'Google' => [
+     *         'key'    => ['2023-11-28', '2023-11-27', ...],  // 日期数组
+     *         'values' => [120, 85, 90, ...],                 // 访问次数
+     *     ],
+     *     'Baidu' => [...],
+     *     ...
+     * ]
+     *
+     * 【AJAX 调用】
+     * 支持按分类获取单个爬虫数据:
+     * POST admin.php/index/botlist
+     * 参数: category=Google
+     *
+     * 【SEO监控意义】
+     * - 爬虫访问频繁 → 网站活跃度高，收录更新快
+     * - 爬虫访问减少 → 可能网站有问题或内容更新慢
+     * - 对比不同爬虫 → 了解各搜索引擎的收录情况
+     *
+     * @return array 爬虫统计数据
+     */
     public function botlist()
     {
         $day_arr = [];
-        //列出最近10天的日期
+
+        // 生成近7天的日期数组 (从今天开始倒推)
+        // 注释写的是10天，实际是7天
         for ($i = 0; $i < 7; $i++) {
+            // 60*60*24 = 86400秒 = 1天
             $day_arr[$i] = date('Y-m-d', time() - $i * 60 * 60 * 24);
         }
-        $google_arr = [];
-        $baidu_arr = [];
-        $sogou_arr = [];
-        $soso_arr = [];
-        $yahoo_arr = [];
-        $msn_arr = [];
-        $msn_bot_arr = [];
-        $sohu_arr = [];
-        $yodao_arr = [];
-        $twiceler_arr = [];
-        $alexa_arr = [];
-        $bot_list = [];
+
+        // 初始化各爬虫统计数组
+        $google_arr = [];      // Google 爬虫
+        $baidu_arr = [];       // 百度爬虫
+        $sogou_arr = [];       // 搜狗爬虫
+        $soso_arr = [];        // 搜搜爬虫 (已停止)
+        $yahoo_arr = [];       // 雅虎爬虫
+        $msn_arr = [];         // MSN/Bing 爬虫
+        $msn_bot_arr = [];     // msnbot
+        $sohu_arr = [];        // 搜狐爬虫
+        $yodao_arr = [];       // 有道爬虫
+        $twiceler_arr = [];    // Twiceler 爬虫
+        $alexa_arr = [];       // Alexa 排名爬虫
+        $bot_list = [];        // 最终结果
+
+        // 遍历每天的日志文件，统计各爬虫访问次数
         foreach ($day_arr as $day_vo) {
+            // 日志文件路径: runtime/log/bot/2023-11-28.txt
             if (file_exists(ROOT_PATH . 'runtime/log/bot/' . $day_vo . '.txt')) {
+                // 读取日志文件内容
                 $bot_content = file_get_contents(ROOT_PATH . 'runtime/log/bot/' . $day_vo . '.txt');
             } else {
                 $bot_content = '';
             }
+
+            // substr_count() 统计字符串出现次数
+            // 通过统计爬虫标识在日志中出现的次数来计算访问量
             $google_arr[$day_vo] = substr_count($bot_content, 'Google');
             $baidu_arr[$day_vo] = substr_count($bot_content, 'Baidu');
             $sogou_arr[$day_vo] = substr_count($bot_content, 'Sogou');
@@ -1126,6 +1446,10 @@ class Index extends Base
             $twiceler_arr[$day_vo] = substr_count($bot_content, 'Twiceler');
             $alexa_arr[$day_vo] = substr_count($bot_content, 'Alexa');
         }
+
+        // 将统计数据转换为前端图表需要的格式
+        // key/keys: 日期数组 (X轴)
+        // values: 访问次数数组 (Y轴)
         $bot_list['Google']['key'] = array_keys($google_arr);
         $bot_list['Google']['values'] = array_values($google_arr);
         $bot_list['Baidu']['keys'] = array_keys($baidu_arr);
@@ -1149,20 +1473,54 @@ class Index extends Base
         $bot_list['Alexa']['keys'] = array_keys($alexa_arr);
         $bot_list['Alexa']['values'] = array_values($alexa_arr);
 
+        // 支持AJAX请求按分类返回单个爬虫数据
         if (!empty($_POST['category'])) {
             return $bot_list[$_POST['category']];
         } else {
+            // 返回所有爬虫统计数据
             return $bot_list;
         }
     }
 
+    /**
+     * ============================================================
+     * 爬虫日志详情查看
+     * ============================================================
+     *
+     * 【功能说明】
+     * 查看指定日期的爬虫访问详细日志
+     * 显示最近20条爬虫访问记录
+     *
+     * 【请求方式】
+     * POST admin.php/index/botlog
+     *
+     * 【请求参数】
+     * - data: 日期 (格式: Y-m-d)
+     *
+     * 【日志格式】
+     * 每行一条记录，包含: 时间、IP、爬虫标识、访问URL
+     *
+     * 【模板位置】
+     * application/admin/view/others/botlog.html
+     *
+     * @return string 渲染后的日志列表HTML
+     */
     public function botlog()
     {
         $parm = input();
-        $data = $parm['data'];
+        $data = $parm['data'];  // 日期参数
+
+        // 读取日志文件
         $bot_content = file_get_contents(ROOT_PATH . 'runtime/log/bot/' . $data . '.txt');
+
+        // 处理日志内容:
+        // 1. 按换行符分割为数组
+        // 2. 反转数组 (最新的记录在前)
+        // 3. 取前20条记录
         $bot_list = array_slice(array_reverse(explode("\r\n", trim($bot_content))), 0, 20);
+
         $this->assign('bot_list', $bot_list);
+
         return $this->fetch('admin@others/botlog');
     }
 }

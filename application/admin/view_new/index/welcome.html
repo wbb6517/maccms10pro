@@ -562,21 +562,75 @@
     <!--        </tr>-->
     <!--        </tbody>-->
     <!--    </table>-->
+    <!-- ============================================================ -->
+    <!-- 【数据库更新提示模块】 -->
+    <!-- ============================================================ -->
+    <!--
+    【功能说明】
+    当系统检测到有数据库升级脚本时，在欢迎页底部显示更新提示
+    提醒管理员执行数据库升级操作
+
+    【检测机制】
+    变量 $update_sql 由 Index::welcome() 控制器方法设置:
+    $update_sql = file_exists('./application/data/update/database.php');
+
+    检测文件: ./application/data/update/database.php
+    - 文件存在: $update_sql = true  → 显示更新提示
+    - 文件不存在: $update_sql = false → 不显示任何内容
+
+    【升级流程】
+    1. 系统版本更新后，会在 application/data/update/ 目录放置 database.php
+    2. 管理员登录后台看到提示
+    3. 点击【点击进升级数据库脚本】链接
+    4. 跳转到 admin/update/step2 执行升级
+    5. 升级完成后，脚本会自动删除 database.php 文件
+    6. 下次访问时 $update_sql = false，提示消失
+
+    【数据库升级脚本示例】 (database.php)
+    通常包含:
+    - ALTER TABLE 语句 (新增字段、修改字段类型)
+    - CREATE TABLE 语句 (新增数据表)
+    - INSERT 语句 (初始化数据)
+    - UPDATE 语句 (数据迁移)
+
+    【安全提醒】
+    - 执行前建议备份数据库
+    - 升级脚本执行后会自动删除，防止重复执行
+    - 如果升级失败，需要手动恢复备份并重新上传脚本
+
+    【相关文件】
+    - application/admin/controller/Index.php : welcome() 方法检测脚本
+    - application/admin/controller/Update.php : step2() 执行升级
+    - application/data/update/database.php : 升级脚本文件(临时)
+    -->
+
+    <!-- 条件判断: 仅当存在升级脚本时显示此区块 -->
     {if condition="$update_sql"}
     <table class="tbinfo pleft layui-table">
+        <!-- 表格标题: "数据库更新提示" -->
         <thead>
             <th colspan="2">{:lang('admin/index/welcome/tip_update_db')}</th>
         </thead>
         <tr>
             <td colspan="2">
-                <font class="tif s20">{:lang('admin/index/welcome/tip_update_db_txt')}</font><a class="j-iframe"
+                <!-- 提示文字: "提示，发现本地有数据库升级脚本？是否执行升级操作！执行完毕后将自动删除脚本！" -->
+                <font class="tif s20">{:lang('admin/index/welcome/tip_update_db_txt')}</font>
+                <!--
+                【升级链接】
+                - class="j-iframe": 使用 Layui iframe 弹窗方式打开
+                - data-href: 目标URL，指向 update/step2 升级执行页面
+                - 点击后在弹窗中执行升级脚本
+                -->
+                <a class="j-iframe"
                     title="{:lang('admin/index/welcome/tip_update_go')}" data-href="{:url('update/step2')}">
+                    <!-- 链接文字: "【点击进升级数据库脚本】" -->
                     <font class="tit s20">{:lang('admin/index/welcome/tip_update_go')}</font>
                 </a>
             </td>
         </tr>
     </table>
     {/if}
+    <!-- End 数据库更新提示模块 -->
 </div>
 <link id="apexcharts-css" rel="stylesheet" href="__STATIC__/css/apexcharts.css">
 <script src="__STATIC__/js/apexcharts.min.js"></script>
