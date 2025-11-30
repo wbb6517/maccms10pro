@@ -1,3 +1,34 @@
+<!--
+============================================================
+网站参数配置页面 (System Config Page)
+============================================================
+
+【页面说明】
+这是后台最重要的配置页面，对应控制器: System::config()
+包含4个Tab标签页，配置存储在: application/extra/maccms.php
+
+【标签页结构】
+Tab 1: 基本设置 (site节点) - 网站名称、域名、模板、状态等
+Tab 2: 性能优化 (app节点) - 缓存、搜索、压缩、版权等
+Tab 3: 预留参数 (app节点) - 扩展字段、过滤词、自定义变量
+Tab 4: 后台设置 (app节点) - 分页、验证码、编辑器、语言
+
+【表单提交】
+- 方式: POST 到 system/config
+- CSRF保护: 隐藏字段 __token__
+- 响应: JSON格式，由Layui处理提示
+
+【模板变量】
+$config     - 当前配置数据 (来自 config('maccms'))
+$templates  - 可用模板列表 (来自 template 目录)
+$langs      - 可用语言列表 (来自 application/lang 目录)
+$editors    - 可用编辑器列表 (来自 extend/editor 目录)
+$usergroup  - 用户组列表 (来自 mac_group 表)
+
+【字段命名规则】
+site[xxx]   - 存入 maccms.php 的 site 数组
+app[xxx]    - 存入 maccms.php 的 app 数组
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 
 <div class="page-container">
@@ -16,6 +47,20 @@
                 <li lay-id="config_4">{:lang('admin/system/config/backstage')}</li>
             </ul>
             <div class="layui-tab-content">
+                <!-- ============================================================
+                【Tab 1: 基本设置】配置节点: site
+                ============================================================
+                包含网站的基础信息配置:
+                - site_name/site_url/site_wapurl: 网站名称和域名
+                - site_keywords/site_description: SEO关键词和描述
+                - site_icp/site_qq/site_email: 备案号和联系方式
+                - site_logo/site_waplogo: PC端/移动端Logo
+                - template_dir/mob_template_dir: PC端/移动端模板目录
+                - mob_status: 移动端开关 (0=关闭, 1=多入口, 2=自适应)
+                - site_tj: 统计代码 (会写入 static/js/tj.js)
+                - site_status: 站点状态 (0=关闭, 1=开启)
+                - mainland_ip_limit: 大陆IP访问限制
+                ============================================================ -->
                 <div class="layui-tab-item layui-show" id="movementTable">
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('admin/system/config/site_name')}：</label>
@@ -214,6 +259,24 @@
                     
                 </div>
 
+                <!-- ============================================================
+                【Tab 2: 性能优化】配置节点: app
+                ============================================================
+                包含性能和搜索相关配置:
+                - pathinfo_depr/suffix: URL分隔符和后缀 (影响SEO)
+                - cache_type: 缓存类型 (file/memcache/redis/memcached)
+                - cache_host/port/password/db: 缓存服务器配置
+                - cache_flag: 静态资源版本标识 (用于刷新浏览器缓存)
+                - cache_core/cache_time: 核心缓存开关和时间
+                - cache_page/cache_time_page: 整页缓存设置
+                - compress: HTML压缩输出
+                - search: 搜索功能开关
+                - search_vod_rule/search_art_rule: 搜索字段规则 (多选)
+                - vod_search_optimise: 搜索优化选项
+                - copyright_status: 版权限制处理方式
+                - browser_junmp: 浏览器内核判断跳转
+                - page_404: 404错误页面模板
+                ============================================================ -->
                 <div class="layui-tab-item" id="movementTable">
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('admin/system/config/pathinfo_depr')}：</label>
@@ -577,6 +640,25 @@
                     </div>
                 </div>
 
+                <!-- ============================================================
+                【Tab 3: 预留参数】配置节点: app
+                ============================================================
+                包含扩展字段和自定义参数配置:
+                - player_sort: 播放器排序方式 (0=添加顺序, 1=全局排序)
+                - encrypt: 播放地址加密方式 (0=不加密, 1=escape, 2=base64)
+                - search_hot: 热门搜索关键词 (逗号分隔)
+                - art_extend_class: 文章扩展分类
+                - vod_extend_class: 视频扩展分类
+                - vod_extend_state: 视频状态扩展 (正片/预告片/花絮)
+                - vod_extend_version: 视频版本扩展 (高清版/剧场版等)
+                - vod_extend_area: 视频地区扩展
+                - vod_extend_lang: 视频语言扩展
+                - vod_extend_year: 视频年份扩展
+                - vod_extend_weekday: 视频更新星期扩展
+                - actor_extend_area: 演员地区扩展
+                - filter_words: 全局过滤词 (用于过滤采集内容)
+                - extra_var: 自定义变量 (格式: key$$$value，模板中用 {$maccms.extra.key})
+                ============================================================ -->
                 <div class="layui-tab-item" id="movementTable">
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('admin/system/config/player_sort')}：</label>
@@ -695,7 +777,17 @@
                     </div>
                 </div>
 
-
+                <!-- ============================================================
+                【Tab 4: 后台设置】配置节点: app
+                ============================================================
+                包含后台管理相关配置:
+                - collect_timespan: 采集间隔时间 (秒，防止频繁采集)
+                - pagesize: 后台列表每页显示数量
+                - makesize: 静态页面生成每批数量
+                - admin_login_verify: 后台登录验证码开关 (0=关闭, 1=开启)
+                - editor: 内容编辑器类型 (Ueditor/Ckeditor/Markdown等)
+                - lang: 后台界面语言 (zh-cn/en-us等)
+                ============================================================ -->
                 <div class="layui-tab-item" id="movementTable">
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('admin/system/config/collect_timespan')}：</label>
