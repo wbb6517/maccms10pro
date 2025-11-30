@@ -1,0 +1,76 @@
+{include file="../../../application/admin/view/app/head" /}
+<div class="page-content">
+<div class="main-wrapper">
+<div class="row">
+<form class="layui-form layui-form-pane" action="">
+<div class="card">
+<ul class="layui-tab-title">
+<li class="layui-this">播放广告</li>
+</ul>
+
+<div class="layui-tab-content">
+<div class="layui-tab-item layui-show">
+<div class="form-control-inline w400">
+<input type="radio" name="ad_select" value="html" title="网页广告" {if condition="$menus.ad_select eq html"}checked {/if}>
+<input type="radio" name="ad_select" value="video" title="视频广告" {if condition="$menus.ad_select eq video"}checked {/if}>
+<input type="radio" name="ad_select" value="sdkad" title="SDK插屏" {if condition="$menus.ad_select eq sdkad"}checked {/if}>
+</div>
+<br>
+<br>
+<div class="mb-3">
+<label class="form-label">html代码：</label>
+<div class="form-control-block  ">
+<textarea  name="html_code" id="" cols="100" rows="10">{$menus.html_code}</textarea>
+</div>
+</div>
+<div class="mb-3">
+<label class="form-label">视频广告地址：</label>
+<div class="form-control-block  ">
+<input type="text" class="form-control" value="{$menus.vod_url}" placeholder="" name="vod_url">
+</div>
+</div>
+<div class="mb-3">
+<label class="form-label">视频广告跳转地址：</label>
+<div class="form-control-block  ">
+<input type="text" class="form-control" value="{$menus.click_url}" placeholder="" name="click_url">
+</div>
+</div>
+<div class="mb-3">
+<label class="form-label">超时时间：</label>
+<div class="form-control-inline w400 ">
+<input type="text" class="form-control" value="{$menus.timeout}" placeholder="" name="timeout">
+</div>
+</div>
+<div class="mb-3">
+<label class="form-label">首页播放记录</label>
+<div class="form-control-inline w400">
+
+<input type="radio" name="home_history" value="on" title="开启" {if condition="$menus.home_history eq on"}checked {/if}>
+<input type="radio" name="home_history" value="off" title="关闭" {if condition="$menus.home_history eq off"}checked {/if}>
+</div>
+</div>
+</div>
+
+</div>
+<div class="mb-3 center">
+<div class="form-control-block">
+<button type="submit" class="layui-btn" lay-submit="" lay-filter="formSubmit">保 存</button>
+<button class="layui-btn layui-btn-warm" type="reset">还 原</button>
+</div>
+</div>
+</div>
+</form>
+</div>
+</div>
+</div>
+<script type="text/javascript">
+layui.use('element', function(){
+var element = layui.element;
+element.on('nav(demo)', function(elem){
+layer.msg(elem.text());
+});
+});
+</script>
+{include file="../../../application/admin/view/app/foot" /}
+</body>
+</html>

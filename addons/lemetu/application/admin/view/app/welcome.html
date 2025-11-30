@@ -1,0 +1,134 @@
+{include file="../../../application/admin/view/public/head" /}
+<div class="page-container">
+<div class="main-wrapper">
+<div class="row">
+<ul class="layui-nav">{$nav}</ul>
+<ul class="layui-tab-title">
+<li class="layui-this">首页</li>
+</ul>
+<table class="layui-table">
+<tbody>
+<tr>
+<td>基础接口</td>
+<td><a href="/icciu_api.php/v1.main/startup" target="_blank" style="color: rgb(17, 0, 255);">==>&nbsp;<b
+style="color: red;" id="startup"></b></a></td>
+</tr>
+<tr>
+<td>播放参数</td>
+<td><a href="/icciu_api.php/v1.Vodad" target="_blank" style="color: rgb(17, 0, 255);">==>&nbsp;<b
+style="color: red;" id="Vodad"></b></a></td>
+</tr>
+</tbody>
+</table>
+<blockquote class="layui-elem-quote layui-quote-nm mt10">
+接口设置：支持设置普通解析及JSON解析，普通解析接口正常填写，JSON接口需多加一个(.)，如：http://a..a.cn/?url=<br>
+直连特征：直连切片资源需要设置特征码否则无法播放视频，特征码支持正则或视频链接中的某一部分，如：.*?.mp4,.*?.m3u8<br>
+分享地址：APP扫码分享后二维码扫码跳转的地址，分享页背景即为APP分享页的背景图片<br>
+视频试看：非会员试看功能在--系统--会员参数配置--试看时长配置，0为关闭全局是看，大于或等于1为试看时长<br>
+<br>
+</blockquote>
+<blockquote class="layui-elem-quote">
+<a class="layui-btn layui-btn-danger layui-btn-sm" id="xz_upgrade_check_btn"
+href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=FH772ogIoys2Tr2b-qWGmxx_VgWspLat" target="_blank">点击加入群聊【站长交流群】</a>
+</blockquote>
+{if condition="$newversion"}
+<table class="tbinfo pleft layui-table" ><thead><th colspan="2">{:lang('admin/index/welcome/tip_update')}</th></thead><tr><td colspan="2"><font class="tif s20">{:lang('admin/index/welcome/tip_update_txt')}</font><a class="j-iframe" title="{:lang('admin/index/welcome/tip_update_go2')}" data-href="{:url('update/step1')}"><font class="tit s20">{:lang('admin/index/welcome/tip_update_go2')}</font></a> </td></tr></table>
+{/if}
+{if condition="$update_sql"}
+<table class="tbinfo pleft layui-table" ><thead><th colspan="2">{:lang('admin/index/welcome/tip_update_db')}</th></thead><tr><td colspan="2"><font class="tif s20">{:lang('admin/index/welcome/tip_update_db_txt')}</font><a class="j-iframe" title="{:lang('admin/index/welcome/tip_update_go')}" data-href="{:url('update/step2')}"><font class="tit s20">{:lang('admin/index/welcome/tip_update_go')}</font></a> </td></tr></table>
+{/if}
+</div>
+</div>
+</div>
+<script type="text/javascript">
+window.onload = function () {
+$("#startup").html('【检测中...】');
+$("#login").html('【检测中...】');
+$("#Vodad").html('【检测中...】');
+$("#gonggao").html('【检测中...】');
+$("#login").html('【检测中...】');
+$("#Vodad").html('【检测中...】');
+$.ajax({
+url: '/icciu_api.php/v1.main/startup',
+type: 'get',
+data: {},
+success: function (data) {
+if (data.indexOf("200") != -1 == true) {
+$("#startup").html("200");
+} else {
+var b = data.substr(data.lastIndexOf("code") + 6, 3);
+$("#startup").html(b);
+}
+},
+
+error: function (data) {
+$("#startup").html(data);
+}
+
+});
+$.ajax({
+url: '/icciu_api.php/v1.auth/login',
+type: 'get',
+data: {
+user_name: "logdtest",
+user_pwd: "123456",
+user_pwd2: "123456",
+},
+success: function (data) {
+if (data.indexOf("200") != -1 == true) {
+$("#login").html("200");
+} else {
+var b = data.substr(data.lastIndexOf("code") + 6, 3);
+$("#login").html(b);
+}
+},
+
+error: function (data) {
+$.ajax({
+url: '/icciu_api.php/v1.auth/Register',
+type: 'get',
+data: {
+user_name: "logdtest",
+user_pwd: "123456",
+user_pwd2: "123456",
+},
+success: function (data) {
+if (data.indexOf("200") != -1 == true) {
+$("#login").html("200");
+} else {
+var b = data.substr(data.lastIndexOf("code") + 6, 3);
+$("#login").html(b);
+}
+},
+
+error: function (data) {
+$("#login").html(data);
+}
+
+});
+}
+
+});
+$.ajax({
+url: '/icciu_api.php/v1.vodad',
+type: 'get',
+data: {},
+success: function (data) {
+if (data.indexOf("200") != -1 == true) {
+$("#Vodad").html("200");
+} else {
+var b = data.substr(data.lastIndexOf("code") + 6, 3);
+$("#Vodad").html(b);
+}
+},
+
+error: function (data) {
+$("#Vodad").html(data);
+}
+
+});
+}
+</script>
+{include file="../../../application/admin/view/public/foot" /}
+</body>
+</html>

@@ -1,0 +1,245 @@
+{include file="../../../application/admin/view/app/head" /}
+
+<div class="page-content">
+<div class="main-wrapper">
+<div class="row">
+<!--接口看板-->
+<div class="col-sm-12 col-md-4">
+<div class="card stat-widget">
+<div class="card-body">
+<h5 class="card-title">接口看板</h5>
+<div class="transactions-list">
+<div class="tr-item">
+<div class="tr-company-name">
+<div class="tr-icon tr-card-icon tr-card-bg-primary text-primary">
+<i data-feather="thumbs-up"></i>
+</div>
+<div class="tr-text">
+<h4>基础接口</h4>
+<p> 01 March >></p>
+</div>
+</div>
+<div class="tr-rate">
+<p><span class="text-success" id="startup" >检测中~</span></p>
+</div>
+</div>
+</div>
+<div class="transactions-list">
+<div class="tr-item">
+<div class="tr-company-name">
+<div class="tr-icon tr-card-icon tr-card-bg-success text-success">
+<i data-feather="credit-card"></i>
+</div>
+<div class="tr-text">
+<h4>播放状态</h4>
+<p>02 March</p>
+</div>
+</div>
+<div class="tr-rate">
+<p><span class="text-success" id="Vodad">+ $300</span></p>
+</div>
+</div>
+</div>
+<div class="transactions-list">
+<div class="tr-item">
+<div class="tr-company-name">
+<div class="tr-icon tr-card-icon tr-card-bg-danger text-danger">
+<i data-feather="tv"></i>
+</div>
+<div class="tr-text">
+<h4>登录接口</h4>
+<p>02 March</p>
+</div>
+</div>
+<div class="tr-rate">
+<p><span class="text-success" >连接正常</span></p>
+</div>
+</div>
+</div>
+<div class="transactions-list">
+<div class="tr-item">
+<div class="tr-company-name">
+<div class="tr-icon tr-card-icon tr-card-bg-warning text-warning">
+<i data-feather="shopping-cart"></i>
+</div>
+<div class="tr-text">
+<h4>更新状态</h4>
+<p>02 March</p>
+</div>
+</div>
+<div class="tr-rate">
+<p><span class="text-success">连接正常</span></p>
+
+</div>
+</div>
+</div>
+
+<div class="transactions-list">
+<div class="tr-item">
+<div class="tr-company-name">
+<div class="tr-icon tr-card-icon tr-card-bg-info text-info">
+<i data-feather="dollar-sign"></i>
+</div>
+<div class="tr-text">
+<h4>授权状态</h4>
+<p>
+<?php
+
+header('content-type:text/html;charset=utf-8');
+
+$file = 'mkey.txt';
+
+if (file_exists($file)) {
+
+echo $file . '存在！授权正常';
+
+} else {
+
+echo $file . ' 不存在！授权失败，请创建mkey.txt并填入授权码';
+
+}
+
+?>
+
+</p>
+</div>
+</div>
+<div class="tr-rate">
+<p><span class="text-success" >+20%</span></p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script type="text/javascript" src="https://www.moxmi.cn/lemetu/lmtapp.js"></script>
+</div>
+</div>
+<!--看板结束-->
+</div>
+
+<!-- Javascripts -->
+<script type="text/javascript">
+window.onload = function () {
+$("#startup").html('【检测中...】');
+$("#login").html('【检测中...】');
+$("#Vodad").html('【检测中...】');
+$("#lemetu").html('【检测中...】');
+$.ajax({
+url: '/icciu_api.php/v1.main/startup',
+type: 'get',
+data: {},
+success: function (data) {
+if (data.indexOf("200") != -1 == true) {
+$("#startup").html("连接正常");
+} else {
+var b = data.substr(data.lastIndexOf("code") + 6, 3);
+$("#startup").html(b);
+}
+},
+
+error: function (data) {
+$("#startup").html(data);
+}
+
+});
+
+$.ajax({
+url: 'https://www.moxmi.cn/',
+type: 'get',
+data: {},
+success: function (data) {
+if (data.indexOf("200") != -1 == true) {
+$("#lemetu").html("连接正常");
+} else {
+var b = data.substr(data.lastIndexOf("code") + 6, 3);
+$("#lemetu").html(b);
+}
+},
+
+error: function (data) {
+$("#lemetu").html(data);
+}
+
+});
+
+$.ajax({
+url: '/icciu_api.php/v1.auth/gonggao',
+type: 'get',
+data: {},
+success: function (data) {
+$("#gonggao").html(data);
+},
+
+error: function (data) {
+$("#gonggao").html(data);
+}
+
+});
+$.ajax({
+url: '/icciu_api.php/v1.auth/User.php',
+type: 'get',
+data: {
+user_name: "logdtest",
+user_pwd: "123456",
+user_pwd2: "123456",
+},
+success: function (data) {
+if (data.indexOf("200") != -1 == true) {
+$("#login").html("连接正常");
+} else {
+var b = data.substr(data.lastIndexOf("code") + 6, 3);
+$("#login").html(b);
+}
+},
+
+error: function (data) {
+$.ajax({
+url: '/icciu_api.php/v1.auth/User.php',
+type: 'get',
+data: {
+user_name: "logdtest",
+user_pwd: "123456",
+user_pwd2: "123456",
+},
+success: function (data) {
+if (data.indexOf("200") != -1 == true) {
+$("#login").html("连接正常");
+} else {
+var b = data.substr(data.lastIndexOf("code") + 6, 3);
+$("#login").html(b);
+}
+},
+
+error: function (data) {
+$("#login").html(data);
+}
+
+});
+}
+
+});
+$.ajax({
+url: '/icciu_api.php/v1.vodad',
+type: 'get',
+data: {},
+success: function (data) {
+if (data.indexOf("200") != -1 == true) {
+$("#Vodad").html("连接正常");
+} else {
+var b = data.substr(data.lastIndexOf("code") + 6, 3);
+$("#Vodad").html(b);
+}
+},
+
+error: function (data) {
+$("#Vodad").html(data);
+}
+
+});
+}
+</script>
+
+{include file="../../../application/admin/view/app/foot" /}
+</body>
+</html>
