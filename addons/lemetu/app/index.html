@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+	<title>安卓演示|客户端下载</title>
+	<link rel="shortcut icon" href="/app/favicon.png" />
+	<script src="js/jquery.js"></script>
+	<style>
+        .wxtip {
+			background: rgba(0, 0, 0, 0.8);
+			text-align: center;
+			position: fixed;
+			left: 0;
+			top: 0;
+			width: 100%;
+			height: 100%;
+			z-index: 998;
+			display: none;
+		}
+		.wxtip-icon {
+			width: 4rem;
+		    height: 5rem;
+		    margin-right: .1rem;
+			background: url(favicon.png) no-repeat;
+			background-size: 3.5rem ;
+			display: block;
+			position: absolute;
+			right:1rem;
+			top: 1rem;
+		}
+
+		.wxtip-txt {
+			margin-top: 6rem;
+			color: #fff;
+			font-size: 1.2rem;
+			line-height: 1.5;
+			display: inline-block;
+			text-align: left;
+			position:absolute;
+			right: 1.5rem;
+		}
+		.wxtip-txt span{
+			display: block;
+			padding: .4rem 0;
+		}
+		.wxtip-txt span i{
+			display: inline-block;
+			width: 2rem;
+			height: 2rem;
+			line-height: 2rem;
+			background: #f44b06;
+			border-radius: 50%;
+			font-style: initial;
+			margin-right: .4rem;
+			text-align: center;
+			font-weight: 600;
+		}
+		.wx-mobile{
+			padding-top: 10rem;
+            display: inline-block;
+		}
+		.wxtip .wx-icon{
+            background-image: url(favicon.png);
+			background-repeat: no-repeat;
+			background-size: 80px;
+			height: 80px;
+			width: 80px;
+			display: block;
+			margin: 0 auto;
+		}
+		.wxtip .wx-btn{
+			margin-top: 10px;
+		    display: inline-block;
+		    margin: 0 auto;
+		    padding: .5rem 2rem;
+		    font-size: 1.5rem;
+		    text-decoration: inherit;
+		    background: #20a52a;
+		    font-size: 1rem;
+		    color: #fff;
+		}
+		.wx-title{
+			margin-bottom: 1.5rem;
+			display: block;
+		    color: #fff;
+		    margin: .5rem 0 1rem 0;
+		}
+		.wxtip .wx-font{
+			color:#fff;
+			padding-top: 10rem;
+			font-size: 1.8rem;
+			text-align:center;
+		}
+	</style>
+</head>
+
+<body>
+<div class="wxtip" id="JweixinTip">
+	<span class="wxtip-icon"></span>
+	<span class="wxtip-txt">
+	    <span><i>1</i>点击右上角</span>
+	    <span><i>2</i>选择在浏览器中打开</span>
+	 </span>
+	<span class="wx-mobile">
+		<span class="wx-icon"></span><br />
+		<span class="wx-title">Lemetu.com</span>
+		<a class="wx-btn" href="lemetu.apk">点击下载</a>
+	</span>
+</div>
+
+<script>
+    $(document).ready(function () {
+        var browser={
+		  versions:function(){
+		    var u = navigator.userAgent,app = navigator.appVersion;
+		    return {
+		      trident: u.indexOf('Trident') > -1, //IE内核
+		      presto: u.indexOf('Presto') > -1, //opera内核
+		      webKit: u.indexOf('AppleWebKit') > -1, //苹果、谷歌内核
+		      gecko: u.indexOf('Gecko') > -1 && u.indexOf('KHTML') == -1,//火狐内核
+		      mobile: !!u.match(/AppleWebKit.*Mobile.*/), //是否为移动终端
+		      ios: !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/), //ios终端
+		      android: u.indexOf('Android') > -1 || u.indexOf('Adr') > -1, //android终端
+		      iPhone: u.indexOf('iPhone') > -1 , //是否为iPhone或者QQHD浏览器
+		      iPad: u.indexOf('iPad') > -1, //是否iPad
+		      webApp: u.indexOf('Safari') == -1, //是否web应该程序，没有头部与底部
+		      weixin: u.indexOf('MicroMessenger') > -1, //是否微信 （2015-01-22新增）
+		      qq: u.match(/\sQQ/i) == "qq" //是否QQ
+		    };
+		  }(),
+		  language:(navigator.browserLanguage || navigator.language).toLowerCase()
+		}
+        if(browser.versions.ios && browser.versions.mobile){//如果是苹果系统
+            $('#JweixinTip').show().find('.wxtip-txt').hide()
+            $('#JweixinTip').show().find('.wxtip-icon').hide()
+            $('#JweixinTip').show().find('.wx-btn').attr({'href':'','style':'background: #999'}).text('暂不支持IOS系统');
+			location.href = '';
+	        return false;
+        }
+        if (browser.versions.weixin) {//如果是微信
+            $('#JweixinTip').show().find('.wx-mobile').hide();
+        } else {
+            $('#JweixinTip').show().find('.wxtip-txt').hide();
+            $('#JweixinTip').show().find('.wxtip-icon').hide();
+        }
+    });
+</script>
+</body>
+</html>

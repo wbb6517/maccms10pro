@@ -1,0 +1,584 @@
+{include file="../../../application/admin/view/app/head" /}
+<div class="page-content">
+<div class="main-wrapper">
+<div class="row">
+<div class="showpic" style="display:none;"><img class="showpic_img" width="120" height="160"></div>
+<form class="layui-form layui-form-pane" action="">
+<div class="card">
+<ul class="layui-tab-title">
+<li class="layui-this">基本设置</li>
+</ul>
+<div class="layui-tab-content">
+<blockquote class="layui-elem-quote layui-quote-nm">
+<b style="color: red;">首页推荐：(键值为分类ID或推荐值)</b><br>
+推荐一根据推荐值推荐如：1、2、3、4<br>
+分类的根据分类ID推荐如：1、2、3、4<br>
+</blockquote>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">推荐一：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijian1]" placeholder="推荐名称"
+value="{$config['user']['tuijian1']}" class="form-control">
+</div>
+<label class="col-sm-2 col-form-label">推荐值：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijians1]" placeholder="推荐值或播放器标识"
+value="{$config['user']['tuijians1']}" class="form-control">
+</div>
+<!--
+<label class="col-sm-2 col-form-label">日期值：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijanss1]" placeholder="默认日期2024"
+value="{$config['user']['tuijanss1']}" class="form-control">
+</div>-->
+<label class="col-sm-2 col-form-label">图标：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijiansimg1]" placeholder="图标地址"
+value="{$config['user']['tuijiansimg1']}" class="form-control">
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">推荐二：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijian2]" placeholder="推荐名称"
+value="{$config['user']['tuijian2']}" class="form-control">
+</div>
+<label class="col-sm-2 col-form-label">推荐值：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijians2]" placeholder="推荐值或播放器标识"
+value="{$config['user']['tuijians2']}" class="form-control">
+</div>
+
+<label class="col-sm-2 col-form-label">日期值：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijanss2]" placeholder="默认日期2024"
+value="{$config['user']['tuijanss2']}" class="form-control">
+</div>
+<label class="col-sm-2 col-form-label">图标：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijiansimg2]" placeholder="图标地址"
+value="{$config['user']['tuijiansimg2']}" class="form-control">
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">推荐三：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijian3]" placeholder="推荐名称"
+value="{$config['user']['tuijian3']}" class="form-control">
+</div>
+<label class="col-sm-2 col-form-label">推荐值：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijians3]" placeholder="推荐值或播放器标识"
+value="{$config['user']['tuijians3']}" class="form-control">
+</div>
+
+<label class="col-sm-2 col-form-label">日期值：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijanss3]" placeholder="默认日期2024"
+value="{$config['user']['tuijanss3']}" class="form-control">
+</div>
+<label class="col-sm-2 col-form-label">图标：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijiansimg3]" placeholder="图标地址"
+value="{$config['user']['tuijiansimg3']}" class="form-control">
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">推荐四：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijian4]" placeholder="推荐名称"
+value="{$config['user']['tuijian4']}" class="form-control">
+</div>
+<label class="col-sm-2 col-form-label">推荐值：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijians4]" placeholder="推荐值或播放器标识"
+value="{$config['user']['tuijians4']}" class="form-control">
+</div>
+
+<label class="col-sm-2 col-form-label">日期值：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijanss4]" placeholder="默认日期2024"
+value="{$config['user']['tuijanss4']}" class="form-control">
+</div>
+<label class="col-sm-2 col-form-label">图标：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijiansimg4]" placeholder="图标地址"
+value="{$config['user']['tuijiansimg4']}" class="form-control">
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">推荐五：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijian5]" placeholder="推荐名称"
+value="{$config['user']['tuijian5']}" class="form-control">
+</div>
+<label class="col-sm-2 col-form-label">推荐值：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijians5]" placeholder="推荐值或播放器标识"
+value="{$config['user']['tuijians5']}" class="form-control">
+</div>
+
+<label class="col-sm-2 col-form-label">日期值：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijanss5]" placeholder="默认日期2024"
+value="{$config['user']['tuijanss5']}" class="form-control">
+</div>
+<label class="col-sm-2 col-form-label">图标：</label>
+<div class="col-sm-10">
+<input type="text" name="user[tuijiansimg5]" placeholder="图标地址"
+value="{$config['user']['tuijiansimg5']}" class="form-control">
+</div>
+</div>
+
+<blockquote class="layui-elem-quote layui-quote-nm">
+<b style="color: red;">样式设置：仅对APP有效</b>
+</blockquote>
+
+<div class="row mb-3">
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">广告行为跳转：</label>
+<div class="col-sm-10">
+<input type="text" name="user[app_user_adurl]" value="{$config['user']['app_user_adurl']}" placeholder="" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">个人中心广告：设置后横幅广告会跳转内部网页，留空跳转积分商城</div>
+</div>
+</div>
+
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">banner动画：</label>
+<div class="col-sm-10">
+<select class="w150" name="user[app_banner_style]">
+<option value="0" {if condition="$config['user']['app_banner_style'] eq '0'" }selected {/if}>Default</option>
+<option value="1" {if condition="$config['user']['app_banner_style'] eq '1'" }selected {/if}>Accordion</option>
+<option value="2" {if condition="$config['user']['app_banner_style'] eq '2'" }selected {/if}>BackgroundToForeground</option>
+<option value="3" {if condition="$config['user']['app_banner_style'] eq '3'" }selected {/if}>ForegroundToBackground</option>
+<option value="4" {if condition="$config['user']['app_banner_style'] eq '4'" }selected {/if}>CubeIn</option>
+<option value="5" {if condition="$config['user']['app_banner_style'] eq '5'" }selected {/if}>CubeOut</option>
+<option value="6" {if condition="$config['user']['app_banner_style'] eq '6'" }selected {/if}>DepthPage</option>
+<option value="7" {if condition="$config['user']['app_banner_style'] eq '7'" }selected {/if}>FlipHorizontal</option>
+<option value="8" {if condition="$config['user']['app_banner_style'] eq '8'" }selected {/if}>FlipVertical</option>
+<option value="9" {if condition="$config['user']['app_banner_style'] eq '9'" }selected {/if}>RotateDown</option>
+<option value="10" {if condition="$config['user']['app_banner_style'] eq '10'" }selected {/if}>RotateUp</option>
+<option value="11" {if condition="$config['user']['app_banner_style'] eq '11'" }selected {/if}>ScaleInOut</option>
+<option value="12" {if condition="$config['user']['app_banner_style'] eq '12'" }selected {/if}>Stack</option>
+<option value="13" {if condition="$config['user']['app_banner_style'] eq '13'" }selected {/if}>Tablet</option>
+<option value="14" {if condition="$config['user']['app_banner_style'] eq '14'" }selected {/if}>ZoomIn</option>
+<option value="15" {if condition="$config['user']['app_banner_style'] eq '15'" }selected {/if}>ZoomOut</option>
+<option value="16" {if condition="$config['user']['app_banner_style'] eq '16'" }selected {/if}>ZoomOutSlide</option>
+</select>
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">首页幻灯片动画特效</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">首页插屏广告：</label>
+<div class="col-sm-10">
+<input type="radio" name="user[app_home_ads]" value="0" title="关闭" {if
+condition="$config['user']['app_home_ads'] neq 1" }checked {/if}>
+<input type="radio" name="user[app_home_ads]" value="1" title="开启" {if
+condition="$config['user']['app_home_ads'] eq 1" }checked {/if}>
+</div>
+</div> 
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">会员中心样式：</label>
+<div class="form-control-block">
+<input type="radio" name="user[app_theme_ui]" value="0" title="样式一" {if condition="$config['user']['app_theme_ui'] eq 0" }checked {/if}>
+<input type="radio" name="user[app_theme_ui]" value="1" title="样式二" {if condition="$config['user']['app_theme_ui'] eq 1" }checked {/if}>
+<input type="radio" name="user[app_theme_ui]" value="2" title="样式三" {if condition="$config['user']['app_theme_ui'] eq 2" }checked {/if}> 
+<input type="radio" name="user[app_theme_ui]" value="3" title="样式四" {if condition="$config['user']['app_theme_ui'] eq 3" }checked {/if}> 
+<input type="radio" name="user[app_theme_ui]" value="4" title="样式五" {if condition="$config['user']['app_theme_ui'] eq 4" }checked {/if}> 
+<input type="radio" name="user[app_theme_ui]" value="5" title="样式六" {if condition="$config['user']['app_theme_ui'] eq 5" }checked {/if}>
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">登录方式：</label>
+<div class="col-sm-10">
+<input type="radio" name="user[app_login_type]" value="0" title="一键" {if condition="$config['user']['app_login_type'] eq 0" }checked {/if}>
+<input type="radio" name="user[app_login_type]" value="1" title="账号" {if condition="$config['user']['app_login_type'] eq 1" }checked {/if}>
+</div>
+</div> 
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">首页顶部虚幻：</label>
+<div class="col-sm-10">
+<input type="radio" name="user[app_ui_home_topbg]" value="0" title="关闭" {if condition="$config['user']['app_ui_home_topbg'] eq 0" }checked {/if}>
+<input type="radio" name="user[app_ui_home_topbg]" value="1" title="开启" {if condition="$config['user']['app_ui_home_topbg'] neq 0" }checked {/if}>
+</div>
+</div>  
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">vip购买模块：</label>
+<div class="col-sm-10">
+<input type="radio" name="user[vip_purchase]" value="0" title="关闭" {if condition="$config['user']['vip_purchase'] neq 1" }checked {/if}>
+<input type="radio" name="user[vip_purchase]" value="1" title="开启" {if condition="$config['user']['vip_purchase'] eq 1" }checked {/if}>
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">在线充值模块：</label>
+<div class="col-sm-10">
+<input type="radio" name="user[online_recharge]" value="0" title="关闭" {if condition="$config['user']['online_recharge'] neq 1" }checked {/if}>
+<input type="radio" name="user[online_recharge]" value="1" title="开启" {if condition="$config['user']['online_recharge'] eq 1" }checked {/if}>
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">显示首页角标：</label>
+<div class="col-sm-10">
+<input type="radio" name="user[app_ui_home_small_icons]" value="0" title="关闭" {if
+condition="$config['user']['app_ui_home_small_icons'] eq 0" }checked {/if}>
+<input type="radio" name="user[app_ui_home_small_icons]" value="1" title="开启" {if
+condition="$config['user']['app_ui_home_small_icons'] neq 0" }checked {/if}>
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">周边视频推荐：</label>
+<div class="col-sm-10">
+<input type="radio" name="user[app_play_recommend]" value="0" title="关闭" {if
+condition="$config['user']['app_play_recommend'] eq 0" }checked {/if}>
+<input type="radio" name="user[app_play_recommend]" value="1" title="开启" {if
+condition="$config['user']['app_play_recommend'] neq 0" }checked {/if}>
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">首页横排数量：</label>
+<div class="col-sm-10">
+<input type="radio" name="user[app_third_ui_home_data]" value="2" title="两个" {if
+condition="$config['user']['app_third_ui_home_data'] eq 2" }checked {/if}>
+
+<input type="radio" name="user[app_third_ui_home_data]" value="3" title="三个" {if
+condition="$config['user']['app_third_ui_home_data'] neq 2" }checked {/if}>
+<!-- <input type="text" name="user[app_third_ui_home_data]" placeholder="不建议超过3个"
+value="{$config['user']['app_third_ui_home_data']}" class="form-control"> -->
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">短视频功能：</label>
+<div class="col-sm-10">
+<input type="radio" name="user[app_third_ui_faxian]" value="0" title="关闭" {if
+condition="$config['user']['app_third_ui_faxian'] neq 1" }checked {/if}>
+<input type="radio" name="user[app_third_ui_faxian]" value="1" title="开启" {if
+condition="$config['user']['app_third_ui_faxian'] eq 1" }checked {/if}>
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">APP底部发现：</label>
+<div class="col-sm-10">
+<input type="radio" name="user[app_third_ui_zhuanji]" value="0" title="关闭" {if
+condition="$config['user']['app_third_ui_zhuanji'] neq 1" }checked {/if}>
+<input type="radio" name="user[app_third_ui_zhuanji]" value="1" title="开启" {if
+condition="$config['user']['app_third_ui_zhuanji'] eq 1" }checked {/if}>
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">按钮四功能：</label>
+<div class="form-control-block">
+<input type="radio" name="user[app_sdk_xtw_dsp]" value="1" title="专辑" {if
+condition="$config['user']['app_sdk_xtw_dsp'] neq 2" }checked {/if}>
+<input type="radio" name="user[app_sdk_xtw_dsp]" value="2" title="发现" {if
+condition="$config['user']['app_sdk_xtw_dsp'] eq 2" }checked {/if}>
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">发现按钮名称：</label>
+<div class="col-sm-10">
+<input type="text" name="user[app_third_ui_name]"
+value="{$config['user']['app_third_ui_name']}" placeholder="" class="form-control">
+</div>
+</div>
+
+
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">分享地址：</label>
+<div class="form-control-block">
+<input type="text" name="app[share_url]" placeholder="" value="{$config['app']['share_url']}" class="form-control">
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">分享背景图：</label>
+<div class="form-control-block">
+<input type="text" name="app[share_logo]" placeholder="图片地址或路径" value="{$config['app']['share_logo']}" class="form-control upload-input">
+</div>
+<div class="col-sm-10 ">
+<button type="button" class="layui-btn layui-upload" lay-data="{data:{thumb:0,thumb_class:'site[share_logo]'}}" id="upload3">上传图片</button>
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">搜索热词：</label>
+<div class="form-control-block">
+<input type="text" name="app[search_hot]" placeholder="搜索热词多个请用,号分割" value="{$config['app']['search_hot']}" class="form-control">
+</div>
+</div>
+
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">代理积分：</label>
+<div class="form-control-block">
+<input type="text" name="app[agents_score]" placeholder="" value="{$config['app']['agents_score']}" class="form-control">
+</div>
+</div>
+
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">注册昵称前缀：</label>
+<div class="form-control-block">
+<input type="text" name="app[reg_autoname_prefix]" placeholder="" value="{$config['app']['reg_autoname_prefix']}" class="form-control">
+</div>
+</div>
+
+<blockquote class="layui-elem-quote layui-quote-nm">
+<b style="color: red;">推广设置：请认真阅读</b>
+</blockquote>
+
+<div class="layui-row">
+<div class="layui-col-md6">
+<div class="row mb-3">
+<label class="col-sm-3 col-form-label">v1分销人数：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="app[user_level][v1][people_count]" placeholder="" value="{$config['app']['user_level']['v1']['people_count']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">用户注册成功后默认赠送次数</div>
+</div>
+</div>
+<div class="layui-col-md6">
+<div class="row mb-3">
+<label class="col-sm-3 col-form-label">v1赠次：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="app[user_level][v1][view_count]" placeholder="" value="{$config['app']['user_level']['v1']['view_count']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">用户注册成功后默认赠送次数</div>
+</div>
+</div>
+</div>
+<div class="layui-row">
+<div class="layui-col-md6">
+<div class="row mb-3">
+<label class="col-sm-3 col-form-label">v2分销人数：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="app[user_level][v2][people_count]" placeholder="" value="{$config['app']['user_level']['v2']['people_count']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">用户达到v2等级所需分销人数</div>
+</div>
+</div>
+<div class="layui-col-md6">
+<div class="row mb-3">
+<label class="col-sm-3 col-form-label">v2赠次：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="app[user_level][v2][view_count]" placeholder="" value="{$config['app']['user_level']['v2']['view_count']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">用户达到等级v2赠送次数</div>
+</div>
+</div>
+</div>
+<div class="layui-row">
+<div class="layui-col-md6">
+<div class="row mb-3">
+<label class="col-sm-3 col-form-label">v3分销人数：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="app[user_level][v3][people_count]" placeholder="" value="{$config['app']['user_level']['v3']['people_count']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">用户达到v3等级所需分销人数</div>
+</div>
+</div>
+<div class="layui-col-md6">
+<div class="row mb-3">
+<label class="col-sm-3 col-form-label">v3赠次：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="app[user_level][v3][view_count]" placeholder="" value="{$config['app']['user_level']['v3']['view_count']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">用户达到等级v3赠送次数</div>
+</div>
+</div>
+</div>
+<div class="layui-row">
+<div class="layui-col-md6">
+<div class="row mb-3">
+<label class="col-sm-3 col-form-label">v4分销人数：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="app[user_level][v4][people_count]" placeholder="" value="{$config['app']['user_level']['v4']['people_count']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">用户达到v4等级所需分销人数</div>
+</div>
+</div>
+<div class="layui-col-md6">
+<div class="row mb-3">
+<label class="col-sm-3 col-form-label">v4赠次：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="app[user_level][v4][view_count]" placeholder="" value="{$config['app']['user_level']['v4']['view_count']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">用户达到等级v4赠送次数</div>
+</div>
+</div>
+</div>
+<div class="layui-row">
+<div class="layui-col-md6">
+<div class="row mb-3">
+<label class="col-sm-3 col-form-label">v5分销人数：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="app[user_level][v5][people_count]" placeholder="" value="{$config['app']['user_level']['v5']['people_count']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">用户达到v5等级所需分销人数</div>
+</div>
+</div>
+<div class="layui-col-md6">
+<div class="row mb-3">
+<label class="col-sm-3 col-form-label">v5赠次：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="app[user_level][v5][view_count]" placeholder="" value="{$config['app']['user_level']['v5']['view_count']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">用户达到等级v5赠送次数</div>
+</div>
+</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">提现状态：</label>
+<div class="col-sm-10">
+<input type="radio" name="user[cash_status]" value="0" title="关闭" {if
+condition="$config['user']['cash_status'] neq 1" }checked {/if}>
+<input type="radio" name="user[cash_status]" value="1" title="开启" {if
+condition="$config['user']['cash_status'] eq 1" }checked {/if}>
+</div>
+</div>
+<div class="row mb-3 layui-hide">
+<label class="col-sm-2 col-form-label">兑换比例：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="user[cash_ratio]" placeholder="兑换比例1元=多少积分"
+value="{$config['user']['cash_ratio']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">兑换比例1元=多少积分</div>
+<label class="col-sm-2 col-form-label">最低提现金额：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="user[cash_min]" placeholder="例如100"
+value="{$config['user']['cash_min']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">最低提现多少金额。</div>
+</div>
+
+
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">兑换比例：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="user[gold_ratio]" placeholder="兑换比例1元=多少金币"
+value="{$config['user']['gold_ratio']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">兑换比例1元=多少金币</div>
+<label class="col-sm-2 col-form-label">最低提现金额：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="user[gold_min]" placeholder="例如100"
+value="{$config['user']['gold_min']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">最低提现多少金额。</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">注册赠次：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="app[reg_times]" placeholder="" value="{$config['app']['reg_times']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">用户注册成功后默认赠送次数</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">点播积分：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="app[trysee_points]" placeholder="" value="{$config['app']['trysee_points']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">全局设置点播积分</div>
+</div>
+<div class="row mb-3">
+<label class="col-sm-2 col-form-label">点播时长：</label>
+<div class="col-sm-10 w150">
+<input type="text" name="app[trysee_time]" placeholder="" value="{$config['app']['trysee_time']}" class="form-control">
+</div>
+<div style="margin-left: 15px;" class="layui-form-mid layui-word-aux">全局设置点播有效时间 单位 小时</div>
+</div>
+
+
+
+
+</div>
+<div class="row mb-3 center">
+<div class="form-control-block">
+<button type="submit" class="btn btn-outline-primary m-b-xs" lay-submit="" lay-filter="formSubmit">保 存</button>
+<button class="btn btn-outline-success m-b-xs" type="reset">还 原</button>
+</div>
+</div>
+</div>
+
+</form>
+</div>
+</div>
+</div>
+<script type="text/javascript">
+layui.use(['form','upload', 'layer'], function(){
+// 操作对象
+var form = layui.form
+, layer = layui.layer
+, upload = layui.upload;
+
+form.on('radio(cache_type)',function(data){
+$('.row_cache_server').hide();
+if(data.value=='memcache' || data.value=='redis' || data.value=='memcached'){
+$('.row_cache_server').show();
+}
+});
+
+
+upload.render({
+elem: '.layui-upload'
+,url: "{:url('upload/upload')}?flag=site"
+,method: 'post'
+,before: function(input) {
+layer.msg('文件上传中...', {time:3000000});
+},done: function(res, index, upload) {
+var obj = this.item;
+if (res.code == 0) {
+layer.msg(res.msg);
+return false;
+}
+layer.closeAll();
+var input = $(obj).parent().parent().find('.upload-input');
+if ($(obj).attr('lay-type') == 'image') {
+input.siblings('img').attr('src', res.data.file).show();
+}
+input.val(res.data.file);
+
+if(res.data.thumb_class !=''){
+$('.'+ res.data.thumb_class).val(res.data.thumb[0].file);
+}
+}
+});
+
+$('.upload-input').hover(function (e){
+var e = window.event || e;
+var imgsrc = $(this).val();
+if(imgsrc.trim()==""){ return; }
+var left = e.clientX+document.body.scrollLeft+20;
+var top = e.clientY+document.body.scrollTop+20;
+$(".showpic").css({left:left,top:top,display:""});
+if(imgsrc.indexOf('://')<0){ imgsrc = ROOT_PATH + '/' + imgsrc;	} else{ imgsrc = imgsrc.replace('mac:','http:'); }
+$(".showpic_img").attr("src", imgsrc);
+},function (e){
+$(".showpic").css("display","none");
+});
+function test_cache(){
+var type = $("input[name='app[cache_type]']:checked").val();
+var host = $("input[name='app[cache_host]']").val();
+var port = $("input[name='app[cache_port]']").val();
+var user_name =  $("input[name='app[cache_username]']").val();
+var password = $("input[name='app[cache_password]']").val();
+layer.msg('数据提交中...',{time:500000});
+$.ajax({
+url: "{:url('system/test_cache')}",
+type: "post",
+dataType: "json",
+data: {type:type,host:host,port:port,username:user_name,password:password},
+beforeSend: function () {
+},
+error:function(r){
+layer.msg('发生错误，请检查是否开启扩展库和配置项!',{time:1800});
+},
+success: function (r) {
+layer.msg(r.msg,{time:1800});
+},
+complete: function () {
+}
+});
+}
+
+});
+</script>
+{include file="../../../application/admin/view/app/foot" /}
+</body>
+</html>
