@@ -1,33 +1,152 @@
+<!--
+============================================================
+专题添加/编辑页面 (Topic Add/Edit Page)
+============================================================
+
+【页面说明】
+后台 "基础 → 专题管理" 的添加和编辑页面
+在 iframe 中以全屏模式打开
+
+【控制器方法】
+Topic::info() - application/admin/controller/Topic.php
+
+【访问路径】
+GET admin.php/topic/info          → 添加新专题
+GET admin.php/topic/info?id=X     → 编辑专题 (X为专题ID)
+POST admin.php/topic/info         → 保存专题数据
+
+【模板变量】
+$info   - 当前专题信息 (编辑时有数据，添加时为空/默认值)
+$title  - 页面标题 "专题管理"
+
+【页面布局】
+采用两个Tab标签页组织表单：
+- Tab1 基本信息: 核心字段 (名称/状态/图片/关联内容等)
+- Tab2 其他信息: SEO设置和统计数据
+
+【表单字段说明 - 基本信息Tab】
+┌──────────────────┬─────────────────────────────────────────┐
+│ 字段名            │ 说明                                     │
+├──────────────────┼─────────────────────────────────────────┤
+│ topic_status     │ 状态 (0=未审核/1=已审核)                  │
+│ topic_level      │ 等级 (1-8普通, 9=幻灯片位)               │
+│ uptime           │ 是否更新时间 (复选框)                     │
+│ topic_name       │ 专题名称 (必填)                          │
+│ topic_sub        │ 副标题                                   │
+│ topic_en         │ 英文标识 (URL别名，留空自动生成拼音)      │
+│ topic_letter     │ 首字母                                   │
+│ topic_color      │ 标题颜色 (jscolor颜色选择器)             │
+│ topic_remarks    │ 备注信息                                 │
+│ topic_sort       │ 排序值 (数字小的在前)                    │
+│ topic_type       │ 分类标签 (逗号分隔)                      │
+│ topic_tpl        │ 模板文件 (默认 detail.html)              │
+│ topic_tag        │ TAG标签 (用于自动关联视频/文章)          │
+│ topic_rel_vod    │ 关联视频ID (逗号分隔，可通过弹窗选择)     │
+│ topic_rel_art    │ 关联文章ID (逗号分隔，可通过弹窗选择)     │
+│ topic_pic        │ 专题图片 (支持上传，自动生成缩略图)       │
+│ topic_pic_thumb  │ 缩略图                                   │
+│ topic_pic_slide  │ 幻灯片大图 (用于首页轮播)                │
+│ topic_blurb      │ 简介 (留空自动从内容截取)                │
+│ topic_content    │ 详细内容 (富文本编辑器)                  │
+└──────────────────┴─────────────────────────────────────────┘
+
+【表单字段说明 - 其他信息Tab】
+┌──────────────────┬─────────────────────────────────────────┐
+│ 字段名            │ 说明                                     │
+├──────────────────┼─────────────────────────────────────────┤
+│ topic_key        │ SEO关键词                                │
+│ topic_des        │ SEO描述                                  │
+│ topic_title      │ SEO标题                                  │
+│ topic_up         │ 顶次数 (可随机生成)                      │
+│ topic_down       │ 踩次数 (可随机生成)                      │
+│ topic_hits       │ 总点击量 (可随机生成)                    │
+│ topic_hits_month │ 月点击量 (可随机生成)                    │
+│ topic_hits_week  │ 周点击量 (可随机生成)                    │
+│ topic_hits_day   │ 日点击量 (可随机生成)                    │
+│ topic_score      │ 评分 (可随机生成)                        │
+│ topic_score_all  │ 评分总数 (可随机生成)                    │
+│ topic_score_num  │ 评分人数 (可随机生成)                    │
+└──────────────────┴─────────────────────────────────────────┘
+
+【专题内容关联机制】
+专题可通过两种方式关联内容：
+1. 手动关联：填写 topic_rel_vod (视频ID) 和 topic_rel_art (文章ID)
+2. 标签关联：填写 topic_tag，系统自动匹配同标签的视频和文章
+
+【JavaScript功能】
+- jscolor: 颜色选择器 (用于标题颜色)
+- UEditor: 富文本编辑器 (用于详细内容)
+- 图片上传: 支持本地上传和缩略图自动生成
+- 图片预览: 鼠标悬停显示预览浮层
+- 随机生成: 一键生成点击量/评分等统计数据
+
+============================================================
+-->
+
+<!-- 引入公共头部 (包含HTML头、CSS、顶部导航等) -->
 {include file="../../../application/admin/view_new/public/head" /}
+
+<!-- 引入 jscolor 颜色选择器插件 (用于标题颜色字段) -->
 <script type="text/javascript" src="__STATIC__/js/jquery.jscolor.js"></script>
+
+<!-- 引入富文本编辑器 (UEditor)，flag="topic_editor" 指定编辑器配置 -->
 {include file="../../../application/admin/view_new/public/editor" flag="topic_editor"/}
+
+<!-- 页面主容器: p10 = padding: 10px -->
 <div class="page-container p10">
 
+    <!-- ============================================================
+    【图片预览浮层】
+    鼠标悬停在图片输入框上时，显示图片预览
+    position:absolute 通过JS动态定位
+    ============================================================ -->
     <div class="showpic" style="display:none;"><img class="showpic_img" width="120" height="160" referrerPolicy="no-referrer"></div>
 
+    <!-- ============================================================
+    【专题编辑表单】
+    method="post" 提交到 topic/info
+    lay-filter="formSubmit" 用于 Layui 表单验证和提交
+    ============================================================ -->
     <form class="layui-form layui-form-pane" method="post" action="">
+        <!-- 隐藏字段: 专题ID (编辑时有值，用于判断是新增还是更新) -->
         <input type="hidden" name="topic_id" value="{$info.topic_id}">
 
+        <!-- ============================================================
+        【Tab标签页容器】
+        包含两个标签页：基本信息 和 其他信息
+        ============================================================ -->
         <div class="layui-tab">
+            <!-- Tab标签标题 -->
             <ul class="layui-tab-title ">
-                <li class="layui-this">{:lang('base_info')}</a></li>
-                <li>{:lang('other_info')}</li>
+                <li class="layui-this">{:lang('base_info')}</a></li>  <!-- 基本信息 (默认选中) -->
+                <li>{:lang('other_info')}</li>                        <!-- 其他信息 -->
             </ul>
         <div class="layui-tab-content">
 
+            <!-- ============================================================
+            【Tab1: 基本信息】
+            包含专题的核心字段
+            ============================================================ -->
             <div class="layui-tab-item layui-show">
 
+                <!-- ============================================================
+                【状态/等级/更新时间设置行】
+                三个字段在同一行显示
+                ============================================================ -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('param')}：</label>
+                    <!-- 状态选择: 已审核/未审核 -->
                     <div class="layui-input-inline ">
                         <select name="topic_status">
                             <option value="1" >{:lang('reviewed')}</option>
                             <option value="0" {if condition="$info.topic_status eq '0'"}selected{/if}>{:lang('reviewed_not')}</option>
                         </select>
                     </div>
+                    <!-- 等级选择: 0-9，其中9为幻灯片位(首页轮播) -->
                     <div class="layui-input-inline ">
                         <select name="topic_level">
                             <option value="0">{:lang('select_level')}</option>
+                            <!-- 等级9: 幻灯片位，会显示在首页轮播区域 -->
                             <option value="9" {if condition="$info['topic_level'] eq 9"}selected {/if}>{:lang('level')}9-{:lang('slide')}</option>
                             <option value="1" {if condition="$info['topic_level'] eq 1"}selected {/if}>{:lang('level')}1</option>
                             <option value="2" {if condition="$info['topic_level'] eq 2"}selected {/if}>{:lang('level')}2</option>
@@ -40,58 +159,87 @@
 
                         </select>
                     </div>
+                    <!-- 更新时间复选框: 勾选后保存时更新 topic_time 为当前时间 -->
                     <div class="layui-input-inline w110">
                         <input type="checkbox" name="uptime" title="{:lang('update_time')}" value="1" checked class="layui-checkbox checkbox-ids" lay-skin="primary">
                     </div>
                 </div>
+
+                <!-- ============================================================
+                【名称/副标题行】
+                ============================================================ -->
                 <div class="layui-form-item">
+                    <!-- 专题名称: 必填，lay-verify="topic_name" 用于验证 -->
                     <label class="layui-form-label">{:lang('name')}：</label>
                     <div class="layui-input-inline w500">
                         <input type="text" class="layui-input" lay-verify="topic_name" value="{$info.topic_name}" placeholder="" name="topic_name">
                     </div>
+                    <!-- 副标题: 可选 -->
                     <label class="layui-form-label">{:lang('sub')}：</label>
                     <div class="layui-input-inline">
                         <input type="text" class="layui-input" value="{$info.topic_sub}" placeholder="" name="topic_sub">
                     </div>
                 </div>
 
+                <!-- ============================================================
+                【英文标识/首字母/颜色行】
+                ============================================================ -->
                 <div class="layui-form-item">
+                    <!-- 英文标识: 用于URL别名 (如 /topic/niandupaodian.html) -->
+                    <!-- 留空时自动根据名称生成拼音 -->
                     <label class="layui-form-label">{:lang('en')}：</label>
                     <div class="layui-input-inline w500">
                         <input type="text" class="layui-input" lay-verify="topic_en" value="{$info.topic_en}" placeholder="" name="topic_en">
                     </div>
+                    <!-- 首字母: 用于按字母筛选 -->
                     <label class="layui-form-label">{:lang('letter')}：</label>
                     <div class="layui-input-inline w70">
                         <input type="text" class="layui-input" value="{$info.topic_letter}" placeholder="" name="topic_letter">
                     </div>
+                    <!-- 标题颜色: 使用 jscolor 颜色选择器 -->
+                    <!-- class="color" 会被 jscolor 插件识别并初始化 -->
                     <label class="layui-form-label">{:lang('color')}：</label>
                     <div class="layui-input-inline w70">
                         <input type="text" class="layui-input color" value="{$info.topic_color}" placeholder="" name="topic_color">
                     </div>
                 </div>
 
+                <!-- ============================================================
+                【备注/排序行】
+                ============================================================ -->
                 <div class="layui-form-item">
+                    <!-- 备注信息: 后台备忘使用 -->
                     <label class="layui-form-label">{:lang('remarks')}：</label>
                     <div class="layui-input-inline w500">
                         <input type="text" class="layui-input" value="{$info.topic_remarks}" placeholder="" name="topic_remarks">
                     </div>
+                    <!-- 排序值: 数字越小越靠前 -->
                     <label class="layui-form-label">{:lang('sort')}：</label>
                     <div class="layui-input-inline ">
                         <input type="text" class="layui-input" value="{$info.topic_sort}" placeholder="" name="topic_sort">
                     </div>
                 </div>
 
+                <!-- ============================================================
+                【分类/模板行】
+                ============================================================ -->
                 <div class="layui-form-item">
+                    <!-- 分类标签: 多个用逗号分隔 -->
                     <label class="layui-form-label">{:lang('class')}：</label>
                     <div class="layui-input-inline w500">
                         <input type="text" class="layui-input" value="{$info.topic_type}" placeholder="{:lang('multi_separate_tip')}" name="topic_type">
                     </div>
+                    <!-- 模板文件: 默认 detail.html -->
                     <label class="layui-form-label">{:lang('tpl')}：</label>
                     <div class="layui-input-inline ">
                         <input type="text" class="layui-input" lay-verify="topic_tpl" value="{$info.topic_tpl|mac_default='detail.html'}" placeholder="" name="topic_tpl">
                     </div>
                 </div>
 
+                <!-- ============================================================
+                【TAG标签行】
+                用于自动关联内容：系统会查找具有相同TAG的视频和文章
+                ============================================================ -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">TAG：</label>
                     <div class="layui-input-inline w500">
@@ -99,43 +247,71 @@
                     </div>
                 </div>
 
+                <!-- ============================================================
+                【关联视频行】
+                手动指定要关联的视频ID，可点击按钮打开选择弹窗
+                ============================================================ -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('admin/topic/vod_include')}：</label>
                     <div class="layui-input-inline w500">
+                        <!-- 填写视频ID，多个用逗号分隔 -->
                         <input type="text" class="layui-input" value="{$info.topic_rel_vod}" placeholder="{:lang('vod')}id,{:lang('multi_separate_tip')}" name="topic_rel_vod">
                     </div>
                     <div class="layui-input-inline">
+                        <!-- 搜索数据按钮: 在iframe中打开视频选择弹窗 -->
+                        <!-- select=1 表示选择模式，input=topic_rel_vod 指定填充的目标输入框 -->
                         <a class="layui-btn j-iframe" data-href="{:url('vod/data')}?select=1&input=topic_rel_vod" href="javascript:;" title="{:lang('search_data')}" data-width="1500px" data-height="650px">{:lang('search_data')}</a>
                     </div>
                 </div>
+
+                <!-- ============================================================
+                【关联文章行】
+                手动指定要关联的文章ID，可点击按钮打开选择弹窗
+                ============================================================ -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('admin/topic/art_include')}：</label>
                     <div class="layui-input-inline w500">
+                        <!-- 填写文章ID，多个用逗号分隔 -->
                         <input type="text" class="layui-input" value="{$info.topic_rel_art}" placeholder="{:lang('art')}id,{:lang('multi_separate_tip')}" name="topic_rel_art">
                     </div>
                     <div class="layui-input-inline">
+                        <!-- 搜索数据按钮: 在iframe中打开文章选择弹窗 -->
                         <a class="layui-btn j-iframe" data-href="{:url('art/data')}?select=1&input=topic_rel_art" href="javascript:;" title="{:lang('search_data')}" data-width="1500px" data-height="650px">{:lang('search_data')}</a>
                     </div>
                 </div>
 
+                <!-- ============================================================
+                【图片上传区域】
+                支持本地上传或填写远程URL
+                上传时可自动生成缩略图
+                ============================================================ -->
+
+                <!-- 专题图片: 主图 -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('pic')}：</label>
                     <div class="layui-input-inline w500 upload">
+                        <!-- upload-input 类用于鼠标悬停预览 -->
                         <input type="text" class="layui-input upload-input" style="max-width:100%;" value="{$info.topic_pic}" placeholder="" id="topic_pic" name="topic_pic">
                     </div>
                     <div class="layui-input-inline ">
+                        <!-- lay-data 包含上传配置: thumb=1 表示生成缩略图，thumb_class 指定缩略图填充的目标类 -->
                         <button type="button" class="layui-btn layui-upload" lay-data="{data:{thumb:1,thumb_class:'upload-thumb'}}" id="upload1">{:lang('upload_pic')}</button>
                     </div>
                 </div>
+
+                <!-- 缩略图: 用于列表展示 -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('pic_thumb')}：</label>
                     <div class="layui-input-inline w500 upload">
+                        <!-- upload-thumb 类用于接收自动生成的缩略图路径 -->
                         <input type="text" class="layui-input upload-input upload-thumb" style="max-width:100%;" value="{$info.topic_pic_thumb}" placeholder="" id="topic_pic_thumb" name="topic_pic_thumb">
                     </div>
                     <div class="layui-input-inline ">
                         <button type="button" class="layui-btn layui-upload" lay-data="{data:{thumb:0,thumb_class:''}}" id="upload2">{:lang('upload_pic')}</button>
                     </div>
                 </div>
+
+                <!-- 幻灯片图: 用于首页轮播 (当等级=9时显示) -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('slide')}：</label>
                     <div class="layui-input-inline w500 upload">
@@ -146,6 +322,10 @@
                     </div>
                 </div>
 
+                <!-- ============================================================
+                【简介输入框】
+                留空时自动从详细内容中截取前100个字符
+                ============================================================ -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('blurb')}：</label>
                     <div class="layui-input-block">
@@ -153,6 +333,12 @@
                     </div>
                 </div>
 
+                <!-- ============================================================
+                【详细内容 - 富文本编辑器】
+                使用 UEditor 编辑器，支持图片上传、格式设置等
+                id="topic_content" 用于JS初始化编辑器
+                mac_url_content_img 函数处理内容中的图片URL协议
+                ============================================================ -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('content')}：</label>
                     <div class="layui-input-block">
@@ -161,20 +347,32 @@
                 </div>
             </div>
 
+            <!-- ============================================================
+            【Tab2: 其他信息】
+            包含SEO设置和统计数据
+            ============================================================ -->
             <div class="layui-tab-item">
 
+                <!-- ============================================================
+                【SEO设置区域】
+                用于搜索引擎优化
+                ============================================================ -->
+
+                <!-- SEO关键词 -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('seo_key')}：</label>
                     <div class="layui-input-block w500">
                         <input type="text" class="layui-input" value="{$info.topic_key}" placeholder="" name="topic_key">
                     </div>
                 </div>
+                <!-- SEO描述 -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('seo_des')}：</label>
                     <div class="layui-input-block w500">
                         <input type="text" class="layui-input" value="{$info.topic_des}" placeholder="" name="topic_des">
                     </div>
                 </div>
+                <!-- SEO标题 -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('seo_title')}：</label>
                     <div class="layui-input-block w500">
@@ -182,18 +380,31 @@
                     </div>
                 </div>
 
+                <!-- ============================================================
+                【顶/踩设置行】
+                包含随机生成按钮，可一键填充所有统计数据
+                ============================================================ -->
                 <div class="layui-form-item">
+                    <!-- 顶次数 -->
                     <label class="layui-form-label">{:lang('up')}：</label>
                     <div class="layui-input-inline ">
                         <input type="text" class="layui-input" value="{$info.topic_up}" placeholder="" id="topic_up" name="topic_up">
                     </div>
+                    <!-- 踩次数 -->
                     <label class="layui-form-label">{:lang('hate')}：</label>
                     <div class="layui-input-inline ">
                         <input type="text" class="layui-input" value="{$info.topic_down}" placeholder="" id="topic_down" name="topic_down">
                     </div>
+                    <!-- 随机生成按钮: 一键生成所有统计数据 -->
                     <button class="layui-btn" type="button" id="btn_rnd">{:lang('rnd_make')}</button>
                 </div>
 
+                <!-- ============================================================
+                【点击量设置区域】
+                分为总点击、月点击、周点击、日点击
+                ============================================================ -->
+
+                <!-- 总点击量 / 月点击量 -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('hits')}：</label>
                     <div class="layui-input-inline ">
@@ -205,6 +416,7 @@
                     </div>
                 </div>
 
+                <!-- 周点击量 / 日点击量 -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('hits_week')}：</label>
                     <div class="layui-input-inline ">
@@ -216,16 +428,22 @@
                     </div>
                 </div>
 
-
+                <!-- ============================================================
+                【评分设置区域】
+                评分 = 评分总数 / 评分人数
+                ============================================================ -->
                 <div class="layui-form-item">
+                    <!-- 当前评分 (0-10) -->
                     <label class="layui-form-label">{:lang('score')}：</label>
                     <div class="layui-input-inline ">
                         <input type="text" class="layui-input" value="{$info.topic_score}" placeholder="" id="topic_score" name="topic_score">
                     </div>
+                    <!-- 评分总数 -->
                     <label class="layui-form-label">{:lang('score_all')}：</label>
                     <div class="layui-input-inline ">
                         <input type="text" class="layui-input" value="{$info.topic_score_all}" placeholder="" id="topic_score_all" name="topic_score_all">
                     </div>
+                    <!-- 评分人数 -->
                     <label class="layui-form-label">{:lang('score_num')}：</label>
                     <div class="layui-input-inline ">
                         <input type="text" class="layui-input" value="{$info.topic_score_num}" placeholder="" id="topic_score_num" name="topic_score_num">
@@ -235,6 +453,12 @@
 
         </div>
         </div>
+
+        <!-- ============================================================
+        【表单提交按钮】
+        lay-submit + lay-filter="formSubmit" 触发表单验证和提交
+        data-child="" 标识这是子页面 (iframe内)，提交后会刷新父页面
+        ============================================================ -->
         <div class="layui-form-item center">
             <div class="layui-input-block">
                 <button type="submit" class="layui-btn" lay-submit="" lay-filter="formSubmit" data-child="">{:lang('btn_save')}</button>
@@ -244,25 +468,37 @@
     </form>
 
 </div>
+
+<!-- 引入公共尾部 (包含通用JS、Layui初始化等) -->
 {include file="../../../application/admin/view_new/public/foot" /}
 
 
+<!-- ============================================================
+【页面JavaScript】
+处理表单验证、图片上传、随机数据生成、富文本编辑器初始化
+============================================================ -->
 <script type="text/javascript">
 
     layui.use(['form','upload', 'layer'], function () {
-        // 操作对象
-        var form = layui.form
-                , layer = layui.layer
-                , $ = layui.jquery
-                , upload = layui.upload;;
+        // ============================================================
+        // 【获取 Layui 模块】
+        // ============================================================
+        var form = layui.form      // 表单模块
+                , layer = layui.layer  // 弹层模块
+                , $ = layui.jquery     // jQuery
+                , upload = layui.upload;; // 上传模块
 
-        // 验证
+        // ============================================================
+        // 【表单验证规则】
+        // ============================================================
         form.verify({
+            // 专题名称验证: 不能为空
             topic_name: function (value) {
                 if (value == "") {
                     return "{:lang('name_empty')}";
                 }
             },
+            // 模板文件验证: 不能为空
             topic_tpl: function (value) {
                 if (value == "") {
                     return "{:lang('admin/topic/tpl_empty')}";
@@ -270,57 +506,88 @@
             }
         });
 
+        // ============================================================
+        // 【图片上传配置】
+        // ============================================================
         upload.render({
-            elem: '.layui-upload'
-            ,url: "{:url('upload/upload')}?flag=topic"
+            elem: '.layui-upload'                     // 绑定所有上传按钮
+            ,url: "{:url('upload/upload')}?flag=topic" // 上传接口 (flag=topic 标识来源)
             ,method: 'post'
+            // 上传前回调: 显示加载提示
             ,before: function(input) {
                 layer.msg("{:lang('upload_ing')}", {time:3000000});
+            // 上传完成回调
             },done: function(res, index, upload) {
                 var obj = this.item;
                 if (res.code == 0) {
+                    // 上传失败，显示错误信息
                     layer.msg(res.msg);
                     return false;
                 }
+                // 关闭加载提示
                 layer.closeAll();
+                // 获取同行的输入框
                 var input = $(obj).parent().parent().find('.upload-input');
+                // 如果是图片类型，显示预览
                 if ($(obj).attr('lay-type') == 'image') {
                     input.siblings('img').attr('src', res.data.file).show();
                 }
+                // 将上传后的文件路径填入输入框
                 input.val(res.data.file);
 
+                // 如果配置了缩略图类，将缩略图路径填入对应输入框
                 if(res.data.thumb_class !=''){
                     $('.'+ res.data.thumb_class).val(res.data.thumb[0].file);
                 }
             }
         });
 
+        // ============================================================
+        // 【图片预览功能】
+        // 鼠标悬停在图片输入框上时，显示图片预览浮层
+        // ============================================================
         $('.upload-input').hover(function (e){
             var e = window.event || e;
             var imgsrc = $(this).val();
+            // 如果输入框为空，不显示预览
             if(imgsrc.trim()==""){ return; }
+            // 计算浮层位置 (鼠标右下方)
             var left = e.clientX+document.body.scrollLeft+20;
             var top = e.clientY+document.body.scrollTop+20;
             $(".showpic").css({left:left,top:top,display:""});
+            // 处理图片URL (相对路径转绝对路径，mac: 协议转 http:)
             if(imgsrc.indexOf('://')<0){ imgsrc = ROOT_PATH + '/' + imgsrc;	} else{ imgsrc = imgsrc.replace('mac:','http:'); }
             $(".showpic_img").attr("src", imgsrc);
         },function (e){
+            // 鼠标移出时隐藏预览
             $(".showpic").css("display","none");
         });
 
+        // ============================================================
+        // 【随机生成统计数据】
+        // 点击"随机生成"按钮，填充点击量、评分等数据
+        // rndNum() 函数在公共JS中定义
+        // ============================================================
         $("#btn_rnd").click(function(){
-            $("#topic_hits").val( rndNum(5000,9999) );
-            $("#topic_hits_month").val( rndNum(1000,4999) );
-            $("#topic_hits_week").val( rndNum(300,999) );
-            $("#topic_hits_day").val( rndNum(1,299) );
-            $("#topic_up").val( rndNum(1,999) );
-            $("#topic_down").val( rndNum(1,999) );
-            $("#topic_score").val( rndNum(10) );
-            $("#topic_score_all").val( rndNum(1000) );
-            $("#topic_score_num").val( rndNum(100) );
+            // 生成点击量数据 (总>月>周>日 递减)
+            $("#topic_hits").val( rndNum(5000,9999) );       // 总点击: 5000-9999
+            $("#topic_hits_month").val( rndNum(1000,4999) ); // 月点击: 1000-4999
+            $("#topic_hits_week").val( rndNum(300,999) );    // 周点击: 300-999
+            $("#topic_hits_day").val( rndNum(1,299) );       // 日点击: 1-299
+            // 生成顶/踩数据
+            $("#topic_up").val( rndNum(1,999) );             // 顶次数: 1-999
+            $("#topic_down").val( rndNum(1,999) );           // 踩次数: 1-999
+            // 生成评分数据
+            $("#topic_score").val( rndNum(10) );             // 评分: 0-10
+            $("#topic_score_all").val( rndNum(1000) );       // 评分总数: 0-1000
+            $("#topic_score_num").val( rndNum(100) );        // 评分人数: 0-100
         });
 
 
+        // ============================================================
+        // 【初始化富文本编辑器】
+        // 使用 UEditor，editor_getEditor() 函数在 editor 模板中定义
+        // ============================================================
         var ue = editor_getEditor('topic_content');
 
     });

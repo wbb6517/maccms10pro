@@ -1,19 +1,108 @@
+<!--
+============================================================
+分类添加/编辑页面 (Type Add/Edit Page)
+============================================================
+
+【页面说明】
+后台 "基础 → 分类管理" 的添加和编辑页面
+在 iframe 中以全屏模式打开
+
+【控制器方法】
+Type::info() - application/admin/controller/Type.php
+
+【访问路径】
+GET admin.php/type/info          → 添加新分类
+GET admin.php/type/info?id=X     → 编辑分类 (X为分类ID)
+GET admin.php/type/info?pid=X    → 添加子分类 (X为父分类ID)
+POST admin.php/type/info         → 保存分类数据
+
+【模板变量】
+$info   - 当前分类信息 (编辑时有数据，添加时为空)
+$infop  - 父分类信息 (添加子分类时有数据)
+$parent - 所有一级分类列表 (用于父分类下拉选择)
+$pid    - URL中传入的父分类ID
+$title  - 页面标题 "分类管理"
+
+【表单字段说明】
+┌──────────────────┬─────────────────────────────────────────┐
+│ 字段名            │ 说明                                     │
+├──────────────────┼─────────────────────────────────────────┤
+│ type_id          │ 分类ID (隐藏字段，编辑时有值)            │
+│ type_mid         │ 分类类型 (1=视频/2=文章/8=演员/11=网址/12=漫画) │
+│ type_pid         │ 父分类ID (0=一级分类)                    │
+│ type_status      │ 状态 (0=禁用/1=启用)                     │
+│ type_sort        │ 排序值 (数字小的在前)                    │
+│ type_name        │ 分类名称                                 │
+│ type_en          │ 英文标识 (URL别名)                       │
+│ type_tpl         │ 分类首页模板                             │
+│ type_tpl_list    │ 筛选列表模板                             │
+│ type_tpl_detail  │ 详情页模板                               │
+│ type_tpl_play    │ 播放页模板 (仅视频分类显示)              │
+│ type_tpl_down    │ 下载页模板 (仅视频分类显示)              │
+│ type_title       │ SEO标题                                  │
+│ type_key         │ SEO关键词                                │
+│ type_des         │ SEO描述                                  │
+│ type_logo        │ 分类Logo图片                             │
+│ type_pic         │ 分类大图                                 │
+│ type_jumpurl     │ 跳转URL                                  │
+│ type_extend[]    │ 扩展属性 (class/area/lang/year/star/director/state/version) │
+└──────────────────┴─────────────────────────────────────────┘
+
+【扩展属性说明 - type_extend】
+这些字段用于前台筛选功能，以逗号分隔多个值
+- class: 剧情分类 (如: 动作,喜剧,爱情)
+- area: 地区 (如: 大陆,香港,台湾) - 仅视频分类
+- lang: 语言 (如: 国语,粤语,英语) - 仅视频分类
+- year: 年份 (如: 2024,2023,2022) - 仅视频分类
+- star: 明星 - 仅视频分类
+- director: 导演 - 仅视频分类
+- state: 状态 (如: 正片,预告片) - 仅视频分类
+- version: 版本 (如: 高清版,蓝光) - 仅视频分类
+
+【动态显示逻辑】
+当分类类型 (type_mid) 切换时：
+- 视频分类 (type_mid=1): 显示所有字段
+- 其他分类: 隐藏视频专用字段 (vod-list 类)
+
+============================================================
+-->
+
+<!-- 引入公共头部 -->
 {include file="../../../application/admin/view_new/public/head" /}
+
+<!-- 页面主容器 -->
 <div class="page-container p10">
 
+    <!-- 图片预览浮层: 鼠标悬停在图片输入框时显示 -->
     <div class="showpic" style="display:none;"><img class="showpic_img" width="120" height="160" referrerPolicy="no-referrer"></div>
-    
+
+    <!-- ============================================================
+    【分类编辑表单】
+    method="post" 提交到 type/info
+    lay-filter="formSubmit" 用于 Layui 表单验证
+    ============================================================ -->
     <form class="layui-form layui-form-pane" method="post" action="" id="movementTable">
+        <!-- 隐藏字段: 分类ID (编辑时有值，用于判断是新增还是更新) -->
         <input type="hidden" name="type_id" value="{$info.type_id}">
+        <!-- 隐藏字段: CSRF Token (防止跨站请求伪造) -->
         <input type="hidden" name="__token__" value="{$Request.token}" />
+
+        <!-- 页面提示信息 -->
         <blockquote class="layui-elem-quote layui-quote-nm">
             {:lang('admin/type/tip')}
         </blockquote>
 
+        <!-- ============================================================
+        【分类类型选择】type_mid
+        决定该分类属于哪个模块
+        切换时会触发 selectOnChange() 显示/隐藏视频专用字段
+        ============================================================ -->
         <div class="layui-form-item">
             <label class="layui-form-label"> {:lang('genre')}：</label>
             <div class="layui-input-inline ">
+                    <!-- lay-filter="type_mid" 用于监听选择变化 -->
                     <select id="type_mid" name="type_mid" lay-filter="type_mid">
+                        <!-- 判断选中状态: 编辑时取当前值，添加子分类时继承父分类的type_mid -->
                         <option value="1" {if condition="$info['type_mid'] == '1' || ($info.type_id eq 0 && $infop['type_mid'] == '1')"}selected {/if}>{:lang('vod')}</option>
                         <option value="2" {if condition="$info['type_mid'] == '2' || ($info.type_id eq 0 && $infop['type_mid'] == '2')"}selected {/if}>{:lang('art')}</option>
                         <option value="8" {if condition="$info['type_mid'] == '8' || ($info.type_id eq 0 && $infop['type_mid'] == '8')"}selected {/if}>{:lang('actor')}</option>
@@ -23,17 +112,30 @@
             </div>
         </div>
 
+        <!-- ============================================================
+        【父分类选择】type_pid
+        选择该分类的父分类，0表示顶级分类
+        $parent 包含所有一级分类 (type_pid=0)
+        ============================================================ -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('admin/type/parent_type')}：</label>
             <div class="layui-input-inline ">
                     <select name="type_pid">
+                        <!-- 顶级分类选项 (value=0) -->
                         <option value="0">{:lang('admin/type/top_type')}</option>
+                        <!-- 遍历所有一级分类作为可选父分类 -->
                         {volist name="parent" id="vo"}
+                        <!-- 判断选中: 编辑时取当前值，添加子分类时取URL中的pid参数 -->
                         <option value="{$vo.type_id}" {if condition="$info.type_pid eq $vo.type_id || $pid eq $vo.type_id"}selected {/if}>{$vo.type_name}</option>
                         {/volist}
                     </select>
             </div>
         </div>
+
+        <!-- ============================================================
+        【状态设置】type_status
+        0=禁用 (前台不显示)，1=启用
+        ============================================================ -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('status')}：</label>
             <div class="layui-input-block">
@@ -41,36 +143,63 @@
                 <input name="type_status" type="radio" id="rad-2" value="1" title="{:lang('enable')}" {if condition="$info['type_status'] eq 1"}checked {/if}>
             </div>
         </div>
+
+        <!-- ============================================================
+        【排序值】type_sort
+        数字越小越靠前
+        ============================================================ -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('sort')}：</label>
             <div class="layui-input-inline w100">
                 <input type="text" class="layui-input" value="{$info.type_sort}" placeholder="" id="type_sort" name="type_sort">
             </div>
         </div>
+
+        <!-- ============================================================
+        【分类名称】type_name (必填)
+        lay-verify="type_name" 用于表单验证
+        ============================================================ -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('name')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" lay-verify="type_name" value="{$info.type_name}" placeholder="" id="type_name" name="type_name">
             </div>
         </div>
+
+        <!-- ============================================================
+        【英文标识】type_en
+        用于URL (如 /vodtype/dianying.html)
+        留空时自动生成拼音
+        ============================================================ -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('en')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" value="{$info.type_en}" placeholder="" id="type_en" name="type_en">
             </div>
         </div>
+
+        <!-- ============================================================
+        【模板设置区域】
+        不同页面使用不同模板文件
+        ============================================================ -->
+
+        <!-- 分类首页模板 (如 type.html) -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('admin/type/type_tpl')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" lay-verify="type_tpl" value="{$info.type_tpl}" placeholder="" id="type_tpl" name="type_tpl">
             </div>
         </div>
+
+        <!-- 筛选列表模板 (如 show.html) -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('admin/type/show_tpl')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" lay-verify="type_tpl_list" value="{$info.type_tpl_list}" placeholder="" id="type_tpl_list" name="type_tpl_list">
             </div>
         </div>
+
+        <!-- 详情页模板 (如 detail.html) -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('admin/type/detail_tpl')}：</label>
             <div class="layui-input-block">
@@ -78,12 +207,20 @@
             </div>
         </div>
 
+        <!-- ============================================================
+        【视频专用模板】vod-list 类
+        仅在 type_mid=1 (视频分类) 时显示
+        ============================================================ -->
+
+        <!-- 播放页模板 (如 play.html) - 仅视频分类 -->
         <div class="layui-form-item vod-list">
             <label class="layui-form-label">{:lang('admin/type/play_tpl')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" value="{$info.type_tpl_play}" placeholder="" id="type_tpl_play" name="type_tpl_play">
             </div>
         </div>
+
+        <!-- 下载页模板 (如 down.html) - 仅视频分类 -->
         <div class="layui-form-item vod-list">
             <label class="layui-form-label">{:lang('admin/type/down_tpl')}：</label>
             <div class="layui-input-block">
@@ -91,6 +228,12 @@
             </div>
         </div>
 
+        <!-- ============================================================
+        【SEO设置区域】
+        用于搜索引擎优化
+        ============================================================ -->
+
+        <!-- SEO标题 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('seo_title')}：</label>
             <div class="layui-input-block">
@@ -98,12 +241,15 @@
             </div>
         </div>
 
+        <!-- SEO关键词 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('seo_key')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" value="{$info.type_key}" placeholder="" id="type_key" name="type_key">
             </div>
         </div>
+
+        <!-- SEO描述 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('seo_des')}：</label>
             <div class="layui-input-block">
@@ -111,15 +257,25 @@
             </div>
         </div>
 
+        <!-- ============================================================
+        【图片上传区域】
+        支持本地上传或填写远程URL
+        ============================================================ -->
+
+        <!-- 分类Logo图片 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('admin/type/logo')}：</label>
             <div class="layui-input-inline w600">
+                <!-- upload-input 类用于鼠标悬停预览 -->
                 <input type="text" name="type_logo" placeholder="" value="{$info['type_logo']}" class="layui-input upload-input">
             </div>
             <div class="layui-input-inline ">
+                <!-- 上传按钮: lay-data 包含上传配置 -->
                 <button type="button" class="layui-btn layui-upload" lay-data="{data:{thumb:0,thumb_class:'type_logo'}}" id="upload1">{:lang('upload_pic')}</button>
             </div>
         </div>
+
+        <!-- 分类大图 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('admin/type/pic')}</label>
             <div class="layui-input-inline w600">
@@ -129,6 +285,11 @@
                 <button type="button" class="layui-btn layui-upload" lay-data="{data:{thumb:0,thumb_class:'type_pic'}}" id="upload1">{:lang('upload_pic')}</button>
             </div>
         </div>
+
+        <!-- ============================================================
+        【跳转URL】type_jumpurl
+        如果设置了跳转URL，访问该分类时会自动跳转
+        ============================================================ -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('jumpurl')}：</label>
             <div class="layui-input-block">
@@ -136,48 +297,76 @@
             </div>
         </div>
 
+        <!-- ============================================================
+        【扩展属性区域】type_extend
+        用于前台筛选功能，以逗号分隔多个值
+        例如: 动作,喜剧,爱情
+        ============================================================ -->
+
+        <!-- 剧情分类 - 所有分类类型都显示 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('class')}：</label>
             <div class="layui-input-block">
+                <!-- name格式: type_extend[class]，后端会自动解析为数组 -->
                 <input type="text" class="layui-input" value="{$info.type_extend.class}" placeholder="{:lang('multi_separate_tip')}" name="type_extend[class]">
             </div>
         </div>
+
+        <!-- ============================================================
+        【视频专用扩展属性】vod-list 类
+        以下字段仅在 type_mid=1 (视频分类) 时显示
+        通过 JS 的 selectOnChange() 函数控制显示/隐藏
+        ============================================================ -->
+
+        <!-- 地区扩展 - 仅视频分类 -->
         <div class="layui-form-item vod-list" {if condition="$info.type_mid neq '1'"} style="display:none" {/if} >
             <label class="layui-form-label">{:lang('extend_area')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" value="{$info.type_extend.area}" placeholder="{:lang('multi_separate_tip')}" name="type_extend[area]">
             </div>
         </div>
+
+        <!-- 语言扩展 - 仅视频分类 -->
         <div class="layui-form-item vod-list" {if condition="$info.type_mid neq '1'"} style="display:none" {/if}>
             <label class="layui-form-label">{:lang('extend_lang')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" value="{$info.type_extend.lang}" placeholder="{:lang('multi_separate_tip')}" name="type_extend[lang]">
             </div>
         </div>
+
+        <!-- 年份扩展 - 仅视频分类 -->
         <div class="layui-form-item vod-list" {if condition="$info.type_mid neq '1'"} style="display:none" {/if}>
             <label class="layui-form-label">{:lang('extend_year')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" value="{$info.type_extend.year}" placeholder="{:lang('multi_separate_tip')}" name="type_extend[year]">
             </div>
         </div>
+
+        <!-- 明星扩展 - 仅视频分类 -->
         <div class="layui-form-item vod-list" {if condition="$info.type_mid neq '1'"} style="display:none" {/if}>
             <label class="layui-form-label">{:lang('admin/type/extend_star')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" value="{$info.type_extend.star}" placeholder="{:lang('multi_separate_tip')}" name="type_extend[star]">
             </div>
         </div>
+
+        <!-- 导演扩展 - 仅视频分类 -->
         <div class="layui-form-item vod-list" {if condition="$info.type_mid neq '1'"} style="display:none" {/if}>
             <label class="layui-form-label">{:lang('admin/type/extend_director')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" value="{$info.type_extend.director}" placeholder="{:lang('multi_separate_tip')}" name="type_extend[director]">
             </div>
         </div>
+
+        <!-- 状态扩展 (正片/预告片等) - 仅视频分类 -->
         <div class="layui-form-item vod-list" {if condition="$info.type_mid neq '1'"} style="display:none" {/if}>
             <label class="layui-form-label">{:lang('admin/type/extend_state')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" value="{$info.type_extend.state}" placeholder="{:lang('multi_separate_tip')}" name="type_extend[state]">
             </div>
         </div>
+
+        <!-- 版本扩展 (高清版/蓝光等) - 仅视频分类 -->
         <div class="layui-form-item vod-list" {if condition="$info.type_mid neq '1'"} style="display:none" {/if}>
             <label class="layui-form-label">{:lang('admin/type/extend_version')}：</label>
             <div class="layui-input-block">
@@ -185,6 +374,11 @@
             </div>
         </div>
 
+        <!-- ============================================================
+        【表单提交按钮】
+        lay-submit + lay-filter="formSubmit" 触发表单验证和提交
+        data-child="true" 标识这是子页面 (iframe内)
+        ============================================================ -->
         <div class="layui-form-item center">
             <div class="layui-input-block">
                 <button type="submit" class="layui-btn" lay-submit="" lay-filter="formSubmit" data-child="true">{:lang('btn_save')}</button>
@@ -194,25 +388,49 @@
     </form>
 
 </div>
+
+<!-- 引入公共尾部 -->
 {include file="../../../application/admin/view_new/public/foot" /}
+
+<!-- ============================================================
+【页面JavaScript】
+处理分类类型切换、图片上传、表单验证
+============================================================ -->
 <script type="text/javascript">
+    /**
+     * 分类类型切换处理函数
+     * 当切换 type_mid 时调用
+     *
+     * @param int id 分类类型ID (1=视频, 2=文章, 8=演员, 11=网址, 12=漫画)
+     *
+     * 【功能说明】
+     * 1. 视频分类显示所有字段 (包括播放模板、下载模板、地区、语言等)
+     * 2. 其他分类隐藏视频专用字段 (vod-list 类)
+     * 3. 新增分类时自动填充默认模板名称
+     */
     function selectOnChange(id)
     {
         var flag = id;
-        var type_tpl = 'type.html';
-        var type_tpl_list = 'show.html';
-        var type_tpl_detail = 'detail.html';
-        var type_tpl_play = 'play.html';
-        var type_tpl_down = 'down.html';
+        // 默认模板文件名
+        var type_tpl = 'type.html';         // 分类首页模板
+        var type_tpl_list = 'show.html';    // 筛选列表模板
+        var type_tpl_detail = 'detail.html'; // 详情页模板
+        var type_tpl_play = 'play.html';    // 播放页模板
+        var type_tpl_down = 'down.html';    // 下载页模板
 
         if(flag != 1){
+            // 非视频分类: 隐藏视频专用字段
             $(".vod-list").hide();
+            // 清空播放和下载模板 (非视频分类不需要)
             type_tpl_play = '';
             type_tpl_down = '';
         }
         else{
+            // 视频分类: 显示所有字段
             $(".vod-list").show();
         }
+
+        // 仅在新增分类时自动填充模板名称 (type_id 为空)
         if($('input[name="type_id"]').val() ==''){
             $('input[name="type_tpl"]').val(type_tpl);
             $('input[name="type_tpl_list"]').val(type_tpl_list);
@@ -221,58 +439,86 @@
             $('input[name="type_tpl_down"]').val(type_tpl_down);
         }
     }
-    layui.use(['form','upload', 'layer'], function () {
-        // 操作对象
-        var form = layui.form
-                , layer = layui.layer
-                , upload = layui.upload
-                , $ = layui.jquery;
 
+    /**
+     * Layui 组件初始化
+     */
+    layui.use(['form','upload', 'layer'], function () {
+        // 获取 Layui 模块
+        var form = layui.form      // 表单模块
+                , layer = layui.layer  // 弹层模块
+                , upload = layui.upload // 上传模块
+                , $ = layui.jquery;    // jQuery
+
+        // ============================================================
+        // 【图片上传配置】
+        // ============================================================
         upload.render({
-            elem: '.layui-upload'
-            ,url: "{:url('upload/upload')}?flag=type"
+            elem: '.layui-upload'                    // 绑定所有上传按钮
+            ,url: "{:url('upload/upload')}?flag=type" // 上传接口 (flag=type 标识来源)
             ,method: 'post'
+            // 上传前回调: 显示加载提示
             ,before: function(input) {
                 layer.msg("{:lang('upload_ing')}", {time:3000000});
-            },done: function(res, index, upload) {
+            }
+            // 上传完成回调
+            ,done: function(res, index, upload) {
                 var obj = this.item;
                 if (res.code == 0) {
+                    // 上传失败，显示错误信息
                     layer.msg(res.msg);
                     return false;
                 }
+                // 关闭加载提示
                 layer.closeAll();
+                // 获取同行的输入框
                 var input = $(obj).parent().parent().find('.upload-input');
+                // 如果是图片类型，显示预览
                 if ($(obj).attr('lay-type') == 'image') {
                     input.siblings('img').attr('src', res.data.file).show();
                 }
+                // 将上传后的文件路径填入输入框
                 input.val(res.data.file);
 
+                // 如果有缩略图，也填入对应输入框
                 if(res.data.thumb_class !=''){
                     $('.'+ res.data.thumb_class).val(res.data.thumb[0].file);
                 }
             }
         });
 
+        // ============================================================
+        // 【图片预览功能】
+        // 鼠标悬停在图片输入框上时，显示图片预览浮层
+        // ============================================================
         $('.upload-input').hover(function (e){
             var e = window.event || e;
             var imgsrc = $(this).val();
+            // 如果输入框为空，不显示预览
             if(imgsrc.trim()==""){ return; }
+            // 计算浮层位置 (鼠标右下方)
             var left = e.clientX+document.body.scrollLeft+20;
             var top = e.clientY+document.body.scrollTop+20;
             $(".showpic").css({left:left,top:top,display:""});
+            // 处理图片URL (相对路径转绝对路径)
             if(imgsrc.indexOf('://')<0){ imgsrc = ROOT_PATH + '/' + imgsrc;	} else{ imgsrc = imgsrc.replace('mac:','http:'); }
             $(".showpic_img").attr("src", imgsrc);
         },function (e){
+            // 鼠标移出时隐藏预览
             $(".showpic").css("display","none");
         });
 
-        // 验证
+        // ============================================================
+        // 【表单验证规则】
+        // ============================================================
         form.verify({
+            // 分类名称验证: 不能为空
             type_name: function (value) {
                 if (value == "") {
                     return "{:lang('name_empty')}";
                 }
             },
+            // 分类模板验证: 不能为空
             type_tpl: function (value) {
                 if (value == "") {
                     return "{:lang('admin/type/tpl_empty')}";
@@ -280,12 +526,18 @@
             }
         });
 
-
+        // ============================================================
+        // 【分类类型切换事件监听】
+        // 当 type_mid 下拉选择变化时触发
+        // ============================================================
         form.on('select(type_mid)', function(data){
             selectOnChange(data.value);
         });
 
-
+        // ============================================================
+        // 【页面初始化】
+        // 根据当前分类类型设置字段显示状态
+        // ============================================================
         selectOnChange({$info.type_mid});
     });
 </script>
