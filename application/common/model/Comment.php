@@ -1,13 +1,22 @@
 <?php
+/**
+ * 评论数据模型 (Comment Model)
+ *
+ * 数据表: mac_comment
+ * 模板标签: {maccms:comment mid="1" rid="$obj.vod_id" order="desc" by="time" num="10"}
+ *
+ * 关联模型: mid=1视频 | mid=2文章 | mid=3专题 | mid=8演员 | mid=9角色 | mid=11网址
+ * 支持楼中楼: comment_pid>0 为回复评论
+ *
+ * 方法: countData()统计 | listData()列表(含子评论) | listCacheData()缓存列表
+ *       infoData()详情 | saveData()保存 | delData()删除 | fieldData()字段更新
+ */
 namespace app\common\model;
 use think\Db;
 
 class Comment extends Base {
-    // 设置数据表（不含前缀）
-    protected $name = 'comment';
-
-    // 定义时间戳字段名
-    protected $createTime = '';
+    protected $name = 'comment';      // 数据表名(不含前缀)
+    protected $createTime = '';       // 不使用自动时间戳
     protected $updateTime = '';
 
     // 自动完成

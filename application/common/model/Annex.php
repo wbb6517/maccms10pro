@@ -1,13 +1,21 @@
 <?php
+/**
+ * 附件数据模型 (Annex Model)
+ *
+ * 数据表: mac_annex
+ *
+ * 功能: 记录上传的图片和文件，便于统一管理和清理
+ * 删除时同步删除物理文件
+ *
+ * 方法: countData()统计 | listData()列表 | infoData()详情
+ *       saveData()保存 | delData()删除(含物理文件) | fieldData()字段更新
+ */
 namespace app\common\model;
 use think\Db;
 
 class Annex extends Base {
-    // 设置数据表（不含前缀）
-    protected $name = 'annex';
-
-    // 定义时间戳字段名
-    protected $createTime = '';
+    protected $name = 'annex';        // 数据表名(不含前缀)
+    protected $createTime = '';       // 不使用自动时间戳
     protected $updateTime = '';
 
     // 自动完成

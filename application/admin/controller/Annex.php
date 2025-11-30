@@ -1,4 +1,15 @@
 <?php
+/**
+ * 附件管理控制器 (Annex Controller)
+ *
+ * 后台 "系统 → 附件管理" 功能
+ *
+ * 方法: data()数据库附件列表 | file()文件管理器 | info()编辑 | del()删除
+ *       check()检测无效附件 | init()初始化/扫描附件入库
+ * 筛选: type类型 | mid模型 | wd文件名
+ *
+ * 附件类型: image图片 | file文件
+ */
 namespace app\admin\controller;
 
 use think\Db;
@@ -10,6 +21,7 @@ class Annex extends Base
         parent::__construct();
     }
 
+    /** 附件列表 - 数据库记录的附件 */
     public function data()
     {
         $param = input();
@@ -44,6 +56,7 @@ class Annex extends Base
         return $this->fetch('admin@annex/index');
     }
 
+    /** 文件管理器 - 浏览upload目录文件 */
     public function file()
     {
         $path = input('path');
@@ -174,6 +187,7 @@ class Annex extends Base
         return $this->error(lang('param_err'));
     }
 
+    /** 检测无效附件 - 删除数据库中不存在的文件记录 */
     public function check()
     {
         mac_echo('<style type="text/css">body{font-size:12px;color: #333333;line-height:21px;}span{font-weight:bold;color:#FF0000}</style>');
@@ -223,6 +237,7 @@ class Annex extends Base
         mac_jump( $url ,3);
     }
 
+    /** 初始化附件 - 扫描内容表图片并入库 */
     public function init()
     {
         $param = input();

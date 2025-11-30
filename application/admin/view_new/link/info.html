@@ -1,32 +1,112 @@
+<!--
+============================================================
+友情链接添加/编辑页面 (Link Add/Edit Page)
+============================================================
+
+【页面说明】
+后台 "基础 → 友情链接" 的添加和编辑页面
+在 iframe 弹窗中打开
+
+【控制器方法】
+Link::info() - application/admin/controller/Link.php
+
+【访问路径】
+GET admin.php/link/info          → 添加新友链
+GET admin.php/link/info?id=X     → 编辑友链 (X为友链ID)
+POST admin.php/link/info         → 保存友链数据
+
+【模板变量】
+$info   - 当前友链信息 (编辑时有数据，添加时为空/默认值)
+$title  - 页面标题 "友情链接"
+
+【表单字段说明】
+┌────────────┬─────────────────────────────────────────┐
+│ 字段名      │ 说明                                     │
+├────────────┼─────────────────────────────────────────┤
+│ link_id    │ 友链ID (隐藏字段，编辑时有值)            │
+│ link_name  │ 友链名称 (必填)                          │
+│ link_url   │ 链接地址 (必填，完整URL)                 │
+│ link_logo  │ Logo图片地址 (图片链接时使用)            │
+│ link_sort  │ 排序值 (数字小的在前)                    │
+│ link_type  │ 链接类型: 0=文字链接, 1=图片链接          │
+└────────────┴─────────────────────────────────────────┘
+
+【友链类型说明】
+- 文字链接: 前台只显示文字，点击跳转
+- 图片链接: 前台显示Logo图片，鼠标悬停显示名称
+
+【JavaScript功能】
+- 表单验证: 名称和URL必填
+
+============================================================
+-->
+
+<!-- 引入公共头部 -->
 {include file="../../../application/admin/view_new/public/head" /}
 
+<!-- 页面主容器: p10 = padding: 10px -->
 <div class="page-container p10">
+    <!-- ============================================================
+    【友链编辑表单】
+    method="post" 提交到 link/info
+    layui-form-pane 带边框样式的表单
+    ============================================================ -->
     <form class="layui-form layui-form-pane" method="post" action="">
+        <!-- 隐藏字段: 友链ID (编辑时有值，用于判断是新增还是更新) -->
         <input id="link_id" name="link_id" type="hidden" value="{$info.link_id}">
+
+        <!-- ============================================================
+        【名称输入】
+        友链显示名称，必填字段
+        ============================================================ -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('name')}：</label>
             <div class="layui-input-block">
+                <!-- lay-verify="link_name" 触发表单验证 -->
                 <input type="text" class="layui-input" value="{$info.link_name}" lay-verify="link_name" placeholder="" id="link_name" name="link_name">
             </div>
         </div>
+
+        <!-- ============================================================
+        【URL输入】
+        链接地址，必填字段，需要完整URL (如 https://example.com)
+        ============================================================ -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('url')}：</label>
             <div class="layui-input-block">
+                <!-- lay-verify="link_url" 触发表单验证 -->
                 <input type="text" class="layui-input" value="{$info.link_url}" lay-verify="link_url" placeholder="" id="link_url" name="link_url">
             </div>
         </div>
+
+        <!-- ============================================================
+        【Logo输入】
+        Logo图片地址，选填
+        当链接类型为"图片链接"时，前台会显示此图片
+        ============================================================ -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('logo')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" value="{$info.link_logo}" placeholder="" id="link_logo" name="link_logo">
             </div>
         </div>
+
+        <!-- ============================================================
+        【排序值输入】
+        数字越小排序越靠前，默认为0
+        ============================================================ -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('sort')}：</label>
             <div class="layui-input-inline w100">
                 <input type="text" class="layui-input" value="{$info.link_sort}" placeholder="" id="link_sort" name="link_sort">
             </div>
         </div>
+
+        <!-- ============================================================
+        【链接类型选择】
+        0 = 文字链接: 前台只显示友链名称文字
+        1 = 图片链接: 前台显示Logo图片
+        ============================================================ -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('genre')}：</label>
             <div class="layui-input-inline">
@@ -37,6 +117,11 @@
             </div>
         </div>
 
+        <!-- ============================================================
+        【表单提交按钮】
+        lay-submit + lay-filter="formSubmit" 触发表单验证和提交
+        data-child="true" 标识这是子页面 (iframe内)，提交后会刷新父页面
+        ============================================================ -->
         <div class="layui-form-item center">
             <div class="layui-input-block">
                 <button type="submit" class="layui-btn" lay-submit="" lay-filter="formSubmit" data-child="true">{:lang('btn_save')}</button>
@@ -47,22 +132,33 @@
 
 </div>
 
+<!-- 引入公共尾部 -->
 {include file="../../../application/admin/view_new/public/foot" /}
 
+<!-- ============================================================
+【页面JavaScript】
+处理表单验证
+============================================================ -->
 <script type="text/javascript">
     layui.use(['form', 'layer'], function () {
-        // 操作对象
-        var form = layui.form
-                , layer = layui.layer
-                , $ = layui.jquery;
+        // ============================================================
+        // 【获取 Layui 模块】
+        // ============================================================
+        var form = layui.form      // 表单模块
+                , layer = layui.layer  // 弹层模块
+                , $ = layui.jquery;    // jQuery
 
-        // 验证
+        // ============================================================
+        // 【表单验证规则】
+        // ============================================================
         form.verify({
+            // 友链名称验证: 不能为空
             link_name: function (value) {
                 if (value == "") {
                     return "{:lang('name_empty')}";
                 }
             },
+            // URL验证: 不能为空
             link_url: function (value) {
                 if (value == "") {
                     return "{:lang('url_empty')}";

@@ -1,4 +1,12 @@
 <?php
+/**
+ * 留言管理控制器 (Gbook Controller)
+ *
+ * 后台 "用户 → 留言管理" 功能
+ *
+ * 方法: data()列表 | info()编辑 | del()删除 | field()状态
+ * 筛选: status状态 | type类型(1主题/2回复) | reply已回复 | uid用户 | wd关键词
+ */
 namespace app\admin\controller;
 use think\Db;
 
@@ -9,6 +17,7 @@ class Gbook extends Base
         parent::__construct();
     }
 
+    /** 留言列表 - 支持按状态/类型/用户筛选 */
     public function data()
     {
         $param = input();
@@ -54,6 +63,7 @@ class Gbook extends Base
         return $this->fetch('admin@gbook/index');
     }
 
+    /** 留言编辑 - 可回复留言 */
     public function info()
     {
         if (Request()->isPost()) {
@@ -75,6 +85,7 @@ class Gbook extends Base
         return $this->fetch('admin@gbook/info');
     }
 
+    /** 删除留言 - all=1清空全部 */
     public function del()
     {
         $param = input();
@@ -96,6 +107,7 @@ class Gbook extends Base
         return $this->error(lang('param_err'));
     }
 
+    /** 更新状态字段 */
     public function field()
     {
         $param = input();

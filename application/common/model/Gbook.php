@@ -1,13 +1,19 @@
 <?php
+/**
+ * 留言数据模型 (Gbook Model)
+ *
+ * 数据表: mac_gbook
+ * 模板标签: {maccms:gbook rid="0" order="desc" by="time" num="10"}
+ *
+ * 方法: listData()列表 | listCacheData()缓存列表 | infoData()详情
+ *       saveData()保存 | delData()删除 | fieldData()字段更新
+ */
 namespace app\common\model;
 use think\Db;
 
 class Gbook extends Base {
-    // 设置数据表（不含前缀）
-    protected $name = 'gbook';
-
-    // 定义时间戳字段名
-    protected $createTime = '';
+    protected $name = 'gbook';        // 数据表名(不含前缀)
+    protected $createTime = '';       // 不使用自动时间戳
     protected $updateTime = '';
 
     // 自动完成

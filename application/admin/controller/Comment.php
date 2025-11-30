@@ -1,4 +1,14 @@
 <?php
+/**
+ * 评论管理控制器 (Comment Controller)
+ *
+ * 后台 "用户 → 评论管理" 功能
+ *
+ * 方法: data()列表 | info()编辑 | del()删除 | field()状态 | blacklist()关键词黑名单 | blacklist_ip()IP黑名单
+ * 筛选: status状态 | mid模型(1视频/2文章/3专题) | uid用户 | report举报 | wd关键词
+ *
+ * 评论关联模型: mid=1视频 | mid=2文章 | mid=3专题 | mid=8演员 | mid=9角色 | mid=11网址
+ */
 namespace app\admin\controller;
 use think\Db;
 
@@ -9,6 +19,7 @@ class Comment extends Base
         parent::__construct();
     }
 
+    /** 评论列表 - 支持按模型/状态/举报筛选 */
     public function data()
     {
         $param = input();
