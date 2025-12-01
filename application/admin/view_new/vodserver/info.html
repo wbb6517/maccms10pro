@@ -1,7 +1,36 @@
+{*
+ * 视频服务器组编辑页面 (VodServer Edit Template)
+ * ============================================================
+ *
+ * 【页面说明】
+ * 后台 "视频 → 服务器组管理" 的添加/编辑页面
+ * 在iframe弹窗中显示，用于配置服务器组信息
+ *
+ * 【表单字段】
+ * - 状态(status): 启用/禁用
+ * - 编码(from): 唯一标识，编辑时只读
+ * - 名称(show): 前台显示名称
+ * - 地址(des): 服务器描述/URL
+ * - 排序(sort): 数字越大越靠前
+ * - 提示(tip): 鼠标悬停提示文字
+ *
+ * 【表单验证】
+ * - 编码(from): 必填
+ * - 名称(show): 必填
+ *
+ * 【模板变量】
+ * - info: 服务器组配置信息 (编辑时)
+ *
+ * @template    admin@vodserver/info
+ * @controller  app\admin\controller\Vodserver::info()
+ *}
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
     <form class="layui-form layui-form-pane" method="post" action="" id="movementTable">
+        <!-- CSRF Token -->
         <input type="hidden" name="__token__" value="{$Request.token}" />
+
+        <!-- 状态: 启用/禁用 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('status')}：</label>
             <div class="layui-input-block">
@@ -9,30 +38,40 @@
                 <input name="status" type="radio" id="rad-2" value="1" title="{:lang('enable')}" {if condition="$info['status'] eq 1"}checked {/if}>
             </div>
         </div>
+
+        <!-- 编码: 唯一标识，用于匹配播放器，编辑时只读 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('code')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" value="{$info.from}" placeholder="{:lang('admin/vodplayer/code_tip')}" id="from" name="from" {if condition="$info.from neq ''"} readonly="readonly"{/if}>
             </div>
         </div>
+
+        <!-- 名称: 前台显示的服务器组名称 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('name')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" value="{$info.show}" placeholder="" id="show" name="show">
             </div>
         </div>
+
+        <!-- 地址/描述: 服务器相关说明或URL -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('admin/vodserver/url')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" value="{$info.des}" placeholder="" id="des" name="des">
             </div>
         </div>
+
+        <!-- 排序: 数字越大越靠前 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('sort')}：</label>
             <div class="layui-input-block">
                 <input type="text" class="layui-input" value="{$info.sort}" placeholder="{:lang('admin/vodplayer/sort_tip')}" id="sort" name="sort">
             </div>
         </div>
+
+        <!-- 提示: 鼠标悬停时显示的提示文字 -->
         <div class="layui-form-item">
             <label class="layui-form-label">{:lang('tip')}：</label>
             <div class="layui-input-block">
@@ -40,6 +79,7 @@
             </div>
         </div>
 
+        <!-- 提交按钮 -->
         <div class="layui-form-item center">
             <div class="layui-input-block">
                 <button type="submit" class="layui-btn" lay-submit="" lay-filter="formSubmit" data-child="true">{:lang('btn_save')}</button>
@@ -53,18 +93,20 @@
 <script type="text/javascript">
 
     layui.use(['form', 'layer'], function () {
-        // 操作对象
+        // Layui 组件
         var form = layui.form
                 , layer = layui.layer
                 , $ = layui.jquery;
 
-        // 验证
+        // 表单验证规则
         form.verify({
+            // 编码不能为空
             from: function (value) {
                 if (value == "") {
                     return "{:lang('admin/vodplayer/code_empty')}";
                 }
             },
+            // 名称不能为空
             show: function (value) {
                 if (value == "") {
                     return "{:lang('name_empty')}";

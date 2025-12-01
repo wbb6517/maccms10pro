@@ -1,37 +1,72 @@
+{*
+ * 视频服务器组列表页面 (VodServer List Template)
+ * ============================================================
+ *
+ * 【页面说明】
+ * 后台 "视频 → 服务器组管理" 的列表页面
+ * 显示所有已配置的视频服务器组/播放源分组
+ *
+ * 【功能按钮】
+ * - 添加: 弹出iframe添加新服务器组
+ *
+ * 【列表字段】
+ * - 排序(sort): 数字越大越靠前
+ * - 编码(from): 唯一标识，用于匹配播放器
+ * - 状态(status): 启用/禁用
+ * - 名称(show): 前台显示名称
+ * - 备注(des): 描述信息
+ * - 提示(tip): 鼠标悬停提示
+ *
+ * 【操作按钮】
+ * - 编辑: 弹出iframe编辑服务器组
+ * - 删除: 删除服务器组配置
+ *
+ * 【模板变量】
+ * - list: 服务器组配置数组
+ *
+ * @template    admin@vodserver/index
+ * @controller  app\admin\controller\Vodserver::index()
+ *}
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
     <div class="my-toolbar-box">
 
         <div class="flex gap-5 overflow-x-auto overflow-y-hidden">
+            <!-- 添加按钮: 弹出iframe添加新服务器组 -->
             <a data-href="{:url('info')}" class="layui-btn layui-btn-primary j-iframe"><i class="layui-icon">&#xe654;</i>{:lang('add')}</a>
         </div>
 
     </div>
 
     <form class="layui-form " method="post" id="pageListForm">
+        <!-- 服务器组列表表格 -->
         <table class="layui-table" lay-size="sm">
             <thead>
             <tr>
-                <th width="80">{:lang('sort')}</th>
-                <th width="80">{:lang('code')}</th>
-                <th width="80">{:lang('status')}</th>
-                <th width="150">{:lang('name')}</th>
-                <th>{:lang('remarks')}</th>
-                <th>{:lang('tip')}</th>
-                <th width="150">{:lang('opt')}</th>
+                <th width="80">{:lang('sort')}</th>        <!-- 排序值 -->
+                <th width="80">{:lang('code')}</th>        <!-- 编码 -->
+                <th width="80">{:lang('status')}</th>      <!-- 状态 -->
+                <th width="150">{:lang('name')}</th>       <!-- 名称 -->
+                <th>{:lang('remarks')}</th>                <!-- 备注 -->
+                <th>{:lang('tip')}</th>                    <!-- 提示 -->
+                <th width="150">{:lang('opt')}</th>        <!-- 操作 -->
             </tr>
             </thead>
 
+            <!-- 遍历服务器组列表 -->
             {volist name="list" id="vo"}
             <tr>
                 <td>{$vo.sort}</td>
                 <td>{$vo.from}</td>
+                <!-- 状态显示: 绿色=启用, 红色=禁用 -->
                 <td>{if condition="$vo.status eq 1"}<span class="layui-badge layui-bg-green">{:lang('enable')}</span>{else}<span class="layui-badge">{:lang('disable')}</span>{/if} </td>
                 <td>{$vo.show|mac_filter_xss}</td>
                 <td>{$vo.des|mac_filter_xss}</td>
                 <td>{$vo.tip|mac_filter_xss}</td>
                 <td>
+                    <!-- 编辑按钮 -->
                     <a class="layui-badge-rim j-iframe" data-href="{:url('info?id='.$vo['from'])}" href="javascript:;" title="{:lang('edit')}">{:lang('edit')}</a>
+                    <!-- 删除按钮 -->
                     <a class="layui-badge-rim j-tr-del" data-href="{:url('del?ids='.$vo['from'])}" href="javascript:;" title="{:lang('del')}">{:lang('del')}</a>
                 </td>
             </tr>
