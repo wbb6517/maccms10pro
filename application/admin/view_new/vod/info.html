@@ -1,3 +1,41 @@
+<!--
+视频数据编辑页面 (Vod Edit Template)
+============================================================
+
+【页面说明】
+后台 "视频 → 视频数据" 的添加/编辑页面
+在iframe中全屏打开，用于编辑视频详细信息
+
+【标签页】
+1. 基本信息: 名称/分类/状态/图片/演员/导演等
+2. 扩展信息: SEO/TAG/扩展字段
+3. 播放信息: 播放组/播放地址管理
+4. 下载信息: 下载组/下载地址管理
+
+【基本信息字段】
+- vod_name: 视频名称 (必填)
+- type_id: 分类
+- vod_status: 审核状态
+- vod_level: 推荐等级
+- vod_pic: 封面图 (支持上传)
+- vod_actor/vod_director: 演员/导演
+- vod_area/vod_lang/vod_year: 地区/语言/年份
+- vod_content: 简介 (富文本编辑器)
+
+【播放信息】
+- 支持多播放组 (多播放器)
+- 每组可添加多集
+- 格式: 播放器编码$集名$地址
+
+【模板变量】
+- info: 视频信息
+- type_tree: 分类树
+- player_list/downer_list/server_list
+- vod_play_list/vod_down_list: 播放/下载组数据
+
+@template    admin@vod/info
+@controller  app\admin\controller\Vod::info()
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <script type="text/javascript" src="__STATIC__/js/jquery.jscolor.js"></script>
 {include file="../../../application/admin/view_new/public/editor" flag="vod_editor"/}

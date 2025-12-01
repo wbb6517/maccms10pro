@@ -1,3 +1,32 @@
+<!--
+视频下载器编辑页面 (VodDowner Edit Template)
+============================================================
+
+【页面说明】
+后台 "视频 → 下载器管理" 的添加/编辑页面
+在iframe弹窗中显示，用于配置下载器信息
+
+【表单字段】
+- 状态(status): 启用/禁用
+- 编码(from): 唯一标识，编辑时只读
+- 名称(show): 下载器显示名称
+- 备注(des): 描述信息
+- 打开方式(target): 当前窗口/新窗口
+- 解析状态(ps): 启用/禁用解析
+- 解析接口(parse): 独立解析URL
+- 排序(sort): 数字越大越靠前
+- 提示(tip): 鼠标悬停提示
+
+【表单验证】
+- 编码(from): 必填
+- 名称(show): 必填
+
+【模板变量】
+- info: 下载器配置信息 (编辑时)
+
+@template    admin@voddowner/info
+@controller  app\admin\controller\Voddowner::info()
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
     <form class="layui-form layui-form-pane" method="post" action="" id="movementTable">

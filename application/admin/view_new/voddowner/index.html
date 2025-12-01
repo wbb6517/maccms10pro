@@ -1,3 +1,37 @@
+<!--
+视频下载器列表页面 (VodDowner List Template)
+============================================================
+
+【页面说明】
+后台 "视频 → 下载器管理" 的列表页面
+显示所有已配置的视频下载器
+
+【功能按钮】
+- 添加: 弹出iframe添加新下载器
+- 状态: 批量修改启用/禁用状态
+- 解析状态: 批量修改解析开关
+
+【列表字段】
+- 排序(sort): 数字越大越靠前
+- 编码(from): 唯一标识，如 http/xunlei
+- 名称(show): 下载器显示名称
+- 状态(status): 启用/禁用
+- 解析状态(ps): 是否启用解析
+- 打开方式(target): 当前窗口/新窗口
+- 独立解析地址(parse): 该下载器专用的解析接口
+- 备注(des): 描述信息
+- 提示(tip): 鼠标悬停提示
+
+【操作按钮】
+- 编辑: 弹出iframe编辑下载器
+- 删除: 删除下载器配置
+
+【模板变量】
+- list: 下载器配置数组
+
+@template    admin@voddowner/index
+@controller  app\admin\controller\Voddowner::index()
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
     <div class="my-toolbar-box">

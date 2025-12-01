@@ -1,4 +1,77 @@
 <?php
+/**
+ * 视频数据模型 (Vod Model)
+ * ============================================================
+ *
+ * 【文件说明】
+ * MacCMS 核心内容管理模型，负责视频/影视数据的增删改查
+ * 对应数据表: mac_vod
+ *
+ * 【方法列表】
+ * ┌─────────────────────────┬────────────────────────────────────────────┐
+ * │ 方法名                   │ 功能说明                                    │
+ * ├─────────────────────────┼────────────────────────────────────────────┤
+ * │ countData()             │ 统计符合条件的视频数量                       │
+ * │ listData()              │ 获取视频列表 (分页查询)                      │
+ * │ listRepeatData()        │ 获取重复视频列表 (用于去重)                  │
+ * │ listCacheData()         │ 前台调用的缓存列表 (模板标签使用)            │
+ * │ infoData()              │ 获取视频详情                                │
+ * │ saveData()              │ 保存视频数据 (新增/编辑)                     │
+ * │ savePlot()              │ 保存剧情简介数据                            │
+ * │ delData()               │ 删除视频数据 (含清理关联文件)                │
+ * │ fieldData()             │ 批量更新指定字段                            │
+ * │ updateToday()           │ 获取今日更新的数据                          │
+ * │ cacheRepeatWithName()   │ 更新单条视频的重复缓存                       │
+ * │ createRepeatCache()     │ 创建/重建重复数据缓存表                      │
+ * └─────────────────────────┴────────────────────────────────────────────┘
+ *
+ * 【核心字段说明】
+ * ┌──────────────────┬─────────────────────────────────────────────────┐
+ * │ 字段名            │ 说明                                             │
+ * ├──────────────────┼─────────────────────────────────────────────────┤
+ * │ vod_id           │ 视频ID (主键，自增)                              │
+ * │ type_id          │ 分类ID                                          │
+ * │ type_id_1        │ 一级分类ID (父分类)                              │
+ * │ vod_name         │ 视频名称                                         │
+ * │ vod_sub          │ 副标题                                           │
+ * │ vod_en           │ 英文名/拼音 (用于URL)                            │
+ * │ vod_status       │ 状态: 0=未审核, 1=已审核                          │
+ * │ vod_level        │ 推荐等级: 0-9, 9为幻灯片推荐                      │
+ * │ vod_lock         │ 锁定: 0=否, 1=是 (锁定后采集不更新)               │
+ * │ vod_isend        │ 完结: 0=连载中, 1=已完结                          │
+ * │ vod_copyright    │ 版权: 0=关闭, 1=开启 (用于版权保护)               │
+ * │ vod_play_from    │ 播放来源 (多组用$$$分隔，如"hnm3u8$$$kbm3u8")     │
+ * │ vod_play_url     │ 播放地址 (多组用$$$分隔，每组内用#分隔多集)        │
+ * │ vod_down_from    │ 下载来源 (格式同播放)                             │
+ * │ vod_down_url     │ 下载地址 (格式同播放)                             │
+ * │ vod_plot         │ 是否有剧情: 0=无, 1=有                            │
+ * │ vod_plot_name    │ 剧情标题 (多个用$$$分隔)                          │
+ * │ vod_plot_detail  │ 剧情内容 (多个用$$$分隔)                          │
+ * └──────────────────┴─────────────────────────────────────────────────┘
+ *
+ * 【播放/下载地址格式】
+ * 单集格式: "集名$地址" 或 直接地址
+ * 多集格式: "第1集$url1#第2集$url2#第3集$url3"
+ * 多组格式: "播放器1的多集$$$播放器2的多集$$$播放器3的多集"
+ *
+ * 完整示例:
+ * vod_play_from: "hnm3u8$$$kbm3u8$$$wjm3u8"
+ * vod_play_url: "第1集$url1#第2集$url2$$$第1集$url1#第2集$url2$$$第1集$url1#第2集$url2"
+ *
+ * 【关联表】
+ * - mac_type: 分类表 (type_id)
+ * - mac_group: 用户组表 (group_id)
+ * - mac_vod_repeat: 重复数据缓存表 (用于去重功能)
+ *
+ * 【缓存机制】
+ * - 详情页缓存: vod_detail_{id}、vod_detail_{en}
+ * - 列表缓存: 使用 md5(查询条件) 作为缓存键
+ * - 重复缓存: vod_repeat_table_created_time
+ *
+ * @package     app\common\model
+ * @author      MacCMS
+ * @version     1.0
+ */
 namespace app\common\model;
 use think\Db;
 use think\Cache;
@@ -18,6 +91,13 @@ class Vod extends Base {
     protected $insert     = [];
     protected $update     = [];
 
+    /**
+     * 统计视频数量
+     *
+     * @param array $where 查询条件
+     *                     - 支持 _string 字段用于原生SQL条件
+     * @return int 符合条件的视频数量
+     */
     public function countData($where)
     {
         $where2='';
@@ -29,6 +109,30 @@ class Vod extends Base {
         return $total;
     }
 
+    /**
+     * 获取视频列表 (分页查询)
+     *
+     * 【功能说明】
+     * 后台和API调用的核心列表方法
+     * 支持分页、排序、字段筛选
+     *
+     * @param array|string $where    查询条件 (数组或JSON字符串)
+     * @param string       $order    排序方式 (如 "vod_time desc")
+     * @param int          $page     页码 (默认1)
+     * @param int          $limit    每页条数 (默认20)
+     * @param int          $start    偏移量 (默认0)
+     * @param string       $field    查询字段 (默认*)
+     * @param int          $addition 是否附加分类/用户组信息 (1=是)
+     * @param int          $totalshow 是否统计总数 (1=是)
+     * @return array 返回结构:
+     *               - code: 状态码
+     *               - msg: 消息
+     *               - page: 当前页
+     *               - pagecount: 总页数
+     *               - limit: 每页条数
+     *               - total: 总记录数
+     *               - list: 视频列表
+     */
     public function listData($where,$order,$page=1,$limit=20,$start=0,$field='*',$addition=1,$totalshow=1)
     {
         $page = $page > 0 ? (int)$page : 1;
@@ -69,6 +173,22 @@ class Vod extends Base {
         return ['code'=>1,'msg'=>lang('data_list'),'page'=>$page,'pagecount'=>ceil($total/$limit),'limit'=>$limit,'total'=>$total,'list'=>$list];
     }
 
+    /**
+     * 获取重复视频列表
+     *
+     * 【功能说明】
+     * 通过 JOIN mac_vod_repeat 表查询重复的视频数据
+     * 用于后台去重功能
+     *
+     * @param array  $where    查询条件
+     * @param string $order    排序方式
+     * @param int    $page     页码
+     * @param int    $limit    每页条数
+     * @param int    $start    偏移量
+     * @param string $field    查询字段
+     * @param int    $addition 是否附加关联信息
+     * @return array 重复视频列表
+     */
     public function listRepeatData($where,$order,$page=1,$limit=20,$start=0,$field='*',$addition=1)
     {
         $page = $page > 0 ? (int)$page : 1;
@@ -111,6 +231,42 @@ class Vod extends Base {
         return ['code'=>1,'msg'=>lang('data_list'),'page'=>$page,'pagecount'=>ceil($total/$limit),'limit'=>$limit,'total'=>$total,'list'=>$list];
     }
 
+    /**
+     * 前台缓存列表数据 (模板标签调用)
+     *
+     * 【功能说明】
+     * 前台模板标签 {maccms:vod} 调用的核心方法
+     * 支持多种筛选条件和缓存机制
+     *
+     * 【主要参数】 (通过 $lp 数组传入)
+     * - order     : 排序字段
+     * - by        : 排序方式 (asc/desc/rnd随机)
+     * - type      : 分类ID (支持 current/all/逗号分隔多个)
+     * - ids       : 指定视频ID (逗号分隔)
+     * - level     : 推荐等级筛选
+     * - area      : 地区筛选
+     * - lang      : 语言筛选
+     * - year      : 年份筛选 (支持 2020 或 2020-2024 格式)
+     * - wd        : 关键词搜索
+     * - actor     : 演员筛选
+     * - director  : 导演筛选
+     * - tag       : 标签筛选
+     * - class     : 分类名筛选
+     * - letter    : 首字母筛选
+     * - paging    : 是否分页 (yes/no)
+     * - num       : 每页数量
+     * - start     : 起始位置
+     * - cachetime : 缓存时间
+     *
+     * 【随机排序优化】
+     * 当 by=rnd 时，采用两种算法优化性能:
+     * - 数据量>2000: 先随机取ID子集再查询
+     * - 数据量<=2000: 随机分页查询
+     *
+     * @param array|string $lp    参数数组或JSON字符串
+     * @param string       $field 查询字段
+     * @return array 返回结构: code/msg/page/pagecount/limit/total/list/pageurl/half
+     */
     public function listCacheData($lp,$field='*')
     {
         if(!is_array($lp)){
@@ -585,6 +741,32 @@ class Vod extends Base {
         return $res;
     }
 
+    /**
+     * 获取视频详情
+     *
+     * 【功能说明】
+     * 获取单条视频的完整信息
+     * 支持缓存机制，按 vod_id 或 vod_en 查询
+     *
+     * 【返回数据处理】
+     * - 解析播放列表: vod_play_list (通过 mac_play_list 函数)
+     * - 解析下载列表: vod_down_list
+     * - 解析剧情列表: vod_plot_list
+     * - 解析截图列表: vod_pic_screenshot_list
+     * - 附加分类信息: type、type_1
+     * - 附加用户组信息: group
+     *
+     * 【缓存键】
+     * - vod_detail_{vod_id}_{vod_en}
+     *
+     * @param array  $where 查询条件 (必须包含 vod_id 或 vod_en)
+     * @param string $field 查询字段
+     * @param int    $cache 是否使用缓存 (0=不使用, 1=使用)
+     * @return array 返回结构:
+     *               - code: 1=成功, 1001=参数错误, 1002=数据不存在
+     *               - msg: 消息
+     *               - info: 视频详情数组
+     */
     public function infoData($where,$field='*',$cache=0)
     {
         if(empty($where) || !is_array($where)){
@@ -642,6 +824,37 @@ class Vod extends Base {
         return ['code'=>1,'msg'=>lang('obtain_ok'),'info'=>$info];
     }
 
+    /**
+     * 保存视频数据 (新增/编辑)
+     *
+     * 【功能说明】
+     * 保存视频数据到数据库
+     * 自动处理播放/下载地址格式化、拼音生成、缓存清理等
+     *
+     * 【数据处理流程】
+     * 1. 验证数据格式 (通过 VodValidate)
+     * 2. 清除相关缓存
+     * 3. 自动填充 type_id_1 (父分类ID)
+     * 4. 自动生成 vod_en (拼音) 和 vod_letter (首字母)
+     * 5. 处理内容中的图片协议
+     * 6. 自动生成 vod_blurb (简介)
+     * 7. 格式化播放/下载地址 (数组转$$$分隔字符串)
+     * 8. 处理截图地址格式
+     * 9. 可选更新时间和自动生成TAG
+     * 10. 保存到数据库
+     * 11. 更新重复数据缓存
+     *
+     * 【播放/下载地址处理】
+     * 输入: 数组格式 ['播放器1地址', '播放器2地址']
+     * 输出: 字符串格式 '播放器1地址$$$播放器2地址'
+     * 换行符转换为 # 分隔多集
+     *
+     * @param array $data 视频数据数组
+     *                    - vod_id: 有值则编辑，无值则新增
+     *                    - uptime: 1=更新时间
+     *                    - uptag: 1=自动生成TAG
+     * @return array 返回结构: code/msg
+     */
     public function saveData($data)
     {
         $validate = \think\Loader::validate('Vod');
@@ -763,6 +976,25 @@ class Vod extends Base {
         return ['code'=>1,'msg'=>lang('save_ok')];
     }
 
+    /**
+     * 保存剧情简介数据
+     *
+     * 【功能说明】
+     * 单独保存视频的分集剧情数据
+     * 用于后台剧情编辑页面
+     *
+     * 【数据格式】
+     * - vod_plot_name: 剧情标题数组 ['第1集标题', '第2集标题']
+     * - vod_plot_detail: 剧情内容数组 ['第1集内容', '第2集内容']
+     * 保存时转换为 $$$ 分隔的字符串
+     *
+     * @param array $data 剧情数据数组
+     *                    - vod_id: 视频ID (必填)
+     *                    - vod_en: 英文名 (用于清除缓存)
+     *                    - vod_plot_name: 剧情标题数组
+     *                    - vod_plot_detail: 剧情内容数组
+     * @return array 返回结构: code/msg
+     */
     public function savePlot($data)
     {
         $validate = \think\Loader::validate('Vod');
@@ -800,6 +1032,25 @@ class Vod extends Base {
         return ['code'=>1,'msg'=>lang('save_ok')];
     }
 
+    /**
+     * 删除视频数据
+     *
+     * 【功能说明】
+     * 删除符合条件的视频数据
+     * 同时清理关联的本地图片和静态HTML文件
+     *
+     * 【清理内容】
+     * - vod_pic: 封面图
+     * - vod_pic_thumb: 缩略图
+     * - vod_pic_slide: 幻灯片图
+     * - 静态详情页HTML文件 (如果开启静态生成)
+     *
+     * 【安全检查】
+     * 只删除 ./upload 目录下的图片文件
+     *
+     * @param array $where 删除条件
+     * @return array 返回结构: code/msg
+     */
     public function delData($where)
     {
         $list = $this->listData($where,'',1,9999);
@@ -835,6 +1086,23 @@ class Vod extends Base {
         return ['code'=>1,'msg'=>lang('del_ok')];
     }
 
+    /**
+     * 批量更新指定字段
+     *
+     * 【功能说明】
+     * 批量更新符合条件的视频的指定字段
+     * 更新后自动清除相关缓存
+     *
+     * 【使用场景】
+     * - 批量修改审核状态
+     * - 批量修改推荐等级
+     * - 批量修改点击量
+     * - 批量修改分类
+     *
+     * @param array $where  更新条件
+     * @param array $update 更新数据 (字段=>值)
+     * @return array 返回结构: code/msg
+     */
     public function fieldData($where,$update)
     {
         if(!is_array($update)){
@@ -857,6 +1125,21 @@ class Vod extends Base {
         return ['code'=>1,'msg'=>lang('set_ok')];
     }
 
+    /**
+     * 获取今日更新的数据
+     *
+     * 【功能说明】
+     * 获取今日 (0点之后) 更新的视频ID或分类ID列表
+     * 用于首页今日更新统计展示
+     *
+     * @param string $flag 返回类型
+     *                     - 'vod': 返回视频ID列表 (默认)
+     *                     - 'type': 返回分类ID列表
+     * @return array 返回结构:
+     *               - code: 1
+     *               - msg: 消息
+     *               - data: 逗号分隔的ID字符串
+     */
     public function updateToday($flag='vod')
     {
         $today = strtotime(date('Y-m-d'));
@@ -876,6 +1159,25 @@ class Vod extends Base {
         return ['code'=>1,'msg'=>lang('obtain_ok'),'data'=> join(',',$ids) ];
     }
 
+    /**
+     * 更新单条视频的重复缓存
+     *
+     * 【功能说明】
+     * 当视频新增或名称变更时，更新 mac_vod_repeat 表中的相关记录
+     * 用于实时维护重复数据缓存
+     *
+     * 【处理逻辑】
+     * 1. 删除该名称的旧缓存记录
+     * 2. 查询同名视频，如果存在重复则插入缓存
+     * 3. 如果表不存在则自动创建
+     *
+     * 【数据表结构】
+     * mac_vod_repeat:
+     * - id1: 重复组中最小的视频ID
+     * - name1: 视频名称 (带索引)
+     *
+     * @param string $name 视频名称
+     */
     public function cacheRepeatWithName($name)
     {
         try{
@@ -890,6 +1192,27 @@ class Vod extends Base {
             config('database.prefix') . 'vod GROUP BY name1 HAVING COUNT(name1)>1)');
         Cache::set('vod_repeat_table_created_time',time());
     }
+    /**
+     * 创建/重建重复数据缓存表
+     *
+     * 【功能说明】
+     * 全量重建 mac_vod_repeat 缓存表
+     * 用于后台"重复数据"功能的初始化
+     *
+     * 【处理流程】
+     * 1. 清空现有缓存表 (TRUNCATE)
+     * 2. 如果表不存在则创建
+     * 3. 全量插入重复数据 (按 vod_name 分组，COUNT>1)
+     * 4. 更新缓存时间标记
+     *
+     * 【缓存策略】
+     * 缓存有效期 7 天，过期后自动重建
+     * 缓存键: vod_repeat_table_created_time
+     *
+     * 【调用场景】
+     * - 后台首次访问重复数据页面
+     * - 手动点击"更新重复缓存"按钮
+     */
     public function  createRepeatCache()
     {
         $prefix = config('database.prefix');

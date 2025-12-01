@@ -1,3 +1,42 @@
+<!--
+视频剧情编辑页面 (Vod Episode Plot Template)
+============================================================
+
+【页面说明】
+后台 "视频 → 视频数据 → 剧情" 的剧情编辑页面
+在iframe中全屏打开，用于编辑视频的分集剧情简介
+
+【功能特点】
+- 支持多集剧情管理 (添加/删除/排序)
+- 每集剧情包含标题和详细内容
+- 使用 UEditor 富文本编辑器
+- 支持剧情组的上下移动排序
+
+【表单字段】
+- vod_plot_name[]: 剧情标题数组
+- vod_plot_detail[]: 剧情内容数组 (富文本)
+
+【操作按钮】
+- 清空: 清空当前组的内容
+- 删除: 删除当前剧情组
+- 上移: 与上一组交换位置
+- 下移: 与下一组交换位置
+- 添加组: 新增一个剧情组
+
+【数据存储格式】
+保存时各组用 $$$ 分隔:
+vod_plot_name: "第1集标题$$$第2集标题$$$第3集标题"
+vod_plot_detail: "第1集内容$$$第2集内容$$$第3集内容"
+
+【模板变量】
+- info: 视频基本信息 (vod_id, vod_name, vod_en, type_id)
+- vod_plot_list: 剧情列表数组
+  - name: 剧情标题
+  - detail: 剧情内容
+
+@template    admin@vod/iplot
+@controller  app\admin\controller\Vod::iplot()
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <script type="text/javascript" src="__STATIC__/js/jquery.jscolor.js"></script>
 {include file="../../../application/admin/view_new/public/editor" flag="vod_editor"/}

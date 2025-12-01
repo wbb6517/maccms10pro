@@ -1,15 +1,128 @@
 <?php
+/**
+ * 视频数据管理控制器 (Vod Management Controller)
+ * ============================================================
+ *
+ * 【文件说明】
+ * 后台 "视频 → 视频数据" 功能的控制器
+ * MacCMS 最核心的内容管理模块，管理视频/影视数据
+ *
+ * 【访问路径】
+ * admin.php/vod/data      → 视频列表页面
+ * admin.php/vod/info      → 添加/编辑视频
+ * admin.php/vod/del       → 删除视频
+ * admin.php/vod/field     → 批量修改字段
+ * admin.php/vod/batch     → 批量操作页面
+ * admin.php/vod/iplot     → 剧情简介编辑
+ * admin.php/vod/updateToday → 更新今日数据
+ *
+ * 【方法列表】
+ * ┌────────────────────┬──────────────────────────────────────┐
+ * │ 方法名              │ 功能说明                              │
+ * ├────────────────────┼──────────────────────────────────────┤
+ * │ data()             │ 视频列表页面 (支持多条件筛选)          │
+ * │ info()             │ 视频添加/编辑页面                      │
+ * │ del()              │ 删除视频 (支持批量/重复数据删除)        │
+ * │ field()            │ 批量修改字段 (状态/等级/点击量等)       │
+ * │ batch()            │ 批量操作页面 (删除/修改/清空播放组)     │
+ * │ iplot()            │ 剧情简介编辑页面                       │
+ * │ updateToday()      │ 更新今日数据统计                       │
+ * └────────────────────┴──────────────────────────────────────┘
+ *
+ * 【数据表说明】
+ * 数据表: mac_vod (通过 Vod 模型操作)
+ *
+ * 【核心字段说明】
+ * ┌──────────────────┬─────────────────────────────────────────┐
+ * │ 字段名            │ 说明                                     │
+ * ├──────────────────┼─────────────────────────────────────────┤
+ * │ vod_id           │ 视频ID (主键)                            │
+ * │ vod_name         │ 视频名称                                 │
+ * │ vod_sub          │ 副标题                                   │
+ * │ type_id          │ 分类ID                                   │
+ * │ type_id_1        │ 一级分类ID                               │
+ * │ vod_status       │ 状态: 0=未审核, 1=已审核                  │
+ * │ vod_level        │ 推荐等级: 0-9                            │
+ * │ vod_lock         │ 锁定: 0=否, 1=是 (锁定后采集不更新)       │
+ * │ vod_copyright    │ 版权: 0=关闭, 1=开启                     │
+ * │ vod_isend        │ 完结: 0=否, 1=是                         │
+ * │ vod_pic          │ 封面图URL                                │
+ * │ vod_actor        │ 演员                                     │
+ * │ vod_director     │ 导演                                     │
+ * │ vod_area         │ 地区                                     │
+ * │ vod_lang         │ 语言                                     │
+ * │ vod_year         │ 年份                                     │
+ * │ vod_play_from    │ 播放来源 (多组用$$$分隔)                  │
+ * │ vod_play_url     │ 播放地址 (多组用$$$分隔)                  │
+ * │ vod_down_from    │ 下载来源 (多组用$$$分隔)                  │
+ * │ vod_down_url     │ 下载地址 (多组用$$$分隔)                  │
+ * │ vod_time         │ 更新时间戳                               │
+ * │ vod_time_add     │ 添加时间戳                               │
+ * │ vod_hits         │ 总点击量                                 │
+ * │ vod_plot         │ 是否有剧情: 0=无, 1=有                   │
+ * └──────────────────┴─────────────────────────────────────────┘
+ *
+ * 【播放/下载地址格式】
+ * 单组: "播放器编码$集名$地址#集名$地址#..."
+ * 多组: "编码1$集1$地址#集2$地址$$$编码2$集1$地址#集2$地址"
+ *
+ * @package     app\admin\controller
+ * @author      MacCMS
+ * @version     1.0
+ */
 namespace app\admin\controller;
 use think\Cache;
 use think\Db;
 
 class Vod extends Base
 {
+    /**
+     * 构造函数
+     */
     public function __construct()
     {
         parent::__construct();
     }
 
+    /**
+     * 视频列表页面
+     *
+     * 【功能说明】
+     * 显示视频数据列表，支持多条件筛选和排序
+     * 支持重复数据筛选模式
+     *
+     * 【筛选条件】
+     * - type      : 分类ID
+     * - level     : 推荐等级
+     * - status    : 审核状态 (0/1)
+     * - copyright : 版权状态 (0/1)
+     * - isend     : 完结状态 (0/1)
+     * - lock      : 锁定状态
+     * - state     : 资源状态
+     * - area      : 地区
+     * - lang      : 语言
+     * - plot      : 剧情状态 (0/1)
+     * - role      : 是否有角色数据 (0/1)
+     * - url       : 播放地址状态 (1=无地址)
+     * - points    : 是否付费
+     * - pic       : 图片状态 (1=无图/2=外链图/3=错误图)
+     * - weekday   : 更新日期
+     * - wd        : 关键词搜索 (名称/演员/副标题)
+     * - player    : 播放器筛选
+     * - downer    : 下载器筛选
+     * - server    : 服务器筛选
+     * - repeat    : 重复数据模式
+     *
+     * 【排序选项】
+     * - vod_time       : 更新时间 (默认)
+     * - vod_id         : ID
+     * - vod_hits       : 总点击量
+     * - vod_hits_month : 月点击量
+     * - vod_hits_week  : 周点击量
+     * - vod_hits_day   : 日点击量
+     *
+     * @return mixed 渲染后的列表页面
+     */
     public function data()
     {
         $param = input();
@@ -181,6 +294,34 @@ class Vod extends Base
         return $this->fetch('admin@vod/index');
     }
 
+    /**
+     * 批量操作页面
+     *
+     * 【功能说明】
+     * 对符合筛选条件的视频进行批量操作
+     * 支持分页批量处理，避免超时
+     *
+     * 【操作类型】
+     * - ck_del=1     : 批量删除
+     * - ck_del=2     : 删除指定播放组
+     * - ck_del=3     : 删除指定下载组
+     * - ck_level     : 批量修改等级
+     * - ck_status    : 批量修改状态
+     * - ck_copyright : 批量修改版权
+     * - ck_lock      : 批量修改锁定
+     * - ck_hits      : 批量修改点击量 (随机范围)
+     * - ck_points    : 批量修改积分
+     *
+     * 【筛选条件】
+     * 同 data() 方法的筛选条件
+     *
+     * 【处理机制】
+     * - 每次处理 limit 条数据 (默认100)
+     * - 自动分页循环处理
+     * - 显示实时处理进度
+     *
+     * @return mixed 渲染后的批量操作页面或处理结果
+     */
     public function batch()
     {
         $param = input();
@@ -428,6 +569,37 @@ class Vod extends Base
         return $this->fetch('admin@vod/batch');
     }
 
+    /**
+     * 视频添加/编辑页面
+     *
+     * 【功能说明】
+     * GET请求: 显示视频编辑表单
+     * POST请求: 保存视频数据
+     *
+     * 【请求参数】
+     * GET:
+     * - id : 视频ID (编辑时传入，添加时为空)
+     *
+     * POST:
+     * - 视频所有字段数据
+     * - 播放组数据 (vod_play_list)
+     * - 下载组数据 (vod_down_list)
+     *
+     * 【模板变量】
+     * - info       : 视频信息
+     * - type_tree  : 分类树
+     * - area_list  : 地区列表
+     * - lang_list  : 语言列表
+     * - group_list : 用户组列表
+     * - player_list: 播放器列表
+     * - downer_list: 下载器列表
+     * - server_list: 服务器组列表
+     * - vod_play_list : 播放组数据
+     * - vod_down_list : 下载组数据
+     * - vod_plot_list : 剧情数据
+     *
+     * @return mixed 渲染后的编辑页面或操作结果
+     */
     public function info()
     {
         if (Request()->isPost()) {
@@ -476,6 +648,21 @@ class Vod extends Base
         return $this->fetch('admin@vod/info');
     }
 
+    /**
+     * 剧情简介编辑页面
+     *
+     * 【功能说明】
+     * GET请求: 显示剧情编辑表单
+     * POST请求: 保存剧情数据
+     *
+     * 【请求参数】
+     * - id : 视频ID
+     *
+     * 【剧情数据格式】
+     * vod_plot_detail 字段存储 JSON 格式的分集剧情
+     *
+     * @return mixed 渲染后的剧情编辑页面或操作结果
+     */
     public function iplot()
     {
         if (Request()->isPost()) {
@@ -502,6 +689,27 @@ class Vod extends Base
         return $this->fetch('admin@vod/iplot');
     }
 
+    /**
+     * 删除视频
+     *
+     * 【功能说明】
+     * 删除指定的视频数据
+     * 支持批量删除和重复数据删除
+     *
+     * 【请求参数】
+     * - ids    : 视频ID列表 (逗号分隔，批量删除)
+     * - repeat : 删除重复数据模式
+     * - retain : 保留策略 (max=保留最大ID, min=保留最小ID)
+     *
+     * 【删除逻辑】
+     * 1. 批量删除: 根据 ids 参数删除
+     * 2. 重复删除: 通过 SQL 删除同名视频，保留指定ID
+     *
+     * 【注意事项】
+     * 删除后会清除重复数据缓存
+     *
+     * @return \think\response\Json 操作结果
+     */
     public function del()
     {
         $param = input();
@@ -550,6 +758,30 @@ class Vod extends Base
         return $this->error(lang('param_err'));
     }
 
+    /**
+     * 批量修改视频字段
+     *
+     * 【功能说明】
+     * 批量修改选中视频的指定字段值
+     * 支持随机范围值 (如点击量)
+     *
+     * 【请求参数】
+     * - ids   : 视频ID列表 (逗号分隔)
+     * - col   : 字段名
+     * - val   : 字段值
+     * - start : 随机范围起始值 (点击量用)
+     * - end   : 随机范围结束值 (点击量用)
+     *
+     * 【支持字段】
+     * - vod_status    : 审核状态
+     * - vod_lock      : 锁定状态
+     * - vod_level     : 推荐等级
+     * - vod_hits      : 点击量 (支持随机范围)
+     * - type_id       : 分类ID
+     * - vod_copyright : 版权状态
+     *
+     * @return \think\response\Json 操作结果
+     */
     public function field()
     {
         $param = input();
@@ -594,6 +826,17 @@ class Vod extends Base
         return $this->error(lang('param_err'));
     }
 
+    /**
+     * 更新今日数据
+     *
+     * 【功能说明】
+     * 更新首页今日更新统计数据
+     *
+     * 【请求参数】
+     * - flag : 更新标识
+     *
+     * @return \think\response\Json 更新结果
+     */
     public function updateToday()
     {
         $param = input();
@@ -602,6 +845,18 @@ class Vod extends Base
         return json($res);
     }
 
+    /**
+     * 分配播放器/下载器/服务器列表到模板
+     *
+     * 【功能说明】
+     * 私有方法，从配置文件读取并分配到模板
+     * 按 sort 降序排序，只返回启用状态的
+     *
+     * 【分配变量】
+     * - player_list : 播放器列表
+     * - downer_list : 下载器列表
+     * - server_list : 服务器组列表
+     */
     private function assignBaseListByConfig() {
         $player_list = config('vodplayer');
         $downer_list = config('voddowner');

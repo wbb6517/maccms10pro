@@ -15,6 +15,5 @@ nohup*
 /upload
 node_modules/
 .claude
-docs
 CLAUDE.md
 **.lock
