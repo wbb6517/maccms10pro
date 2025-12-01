@@ -857,10 +857,16 @@ class Vod extends Base {
      */
     public function saveData($data)
     {
+        // ========== 步骤1: 数据验证 ==========
+        // 使用 Vod 验证器检查必填字段 (vod_name, type_id)
         $validate = \think\Loader::validate('Vod');
         if(!$validate->check($data)){
             return ['code'=>1001,'msg'=>lang('param_err').'：'.$validate->getError() ];
         }
+
+        // ========== 步骤2: 清除相关缓存 ==========
+        // 缓存键格式: vod_detail_{id}, vod_detail_{en}, vod_detail_{id}_{en}
+        // 编辑视频时必须清除旧缓存，确保前台显示最新数据
         $key = 'vod_detail_'.$data['vod_id'];
         Cache::rm($key);
         $key = 'vod_detail_'.$data['vod_en'];
@@ -868,23 +874,33 @@ class Vod extends Base {
         $key = 'vod_detail_'.$data['vod_id'].'_'.$data['vod_en'];
         Cache::rm($key);
 
+        // ========== 步骤3: 自动填充一级分类ID ==========
+        // 从分类缓存获取当前分类信息
+        // type_id_1 存储一级分类ID，用于分类筛选和统计
         $type_list = model('Type')->getCache('type_list');
         $type_info = $type_list[$data['type_id']];
         $data['type_id_1'] = $type_info['type_pid'];
 
+        // ========== 步骤4: 自动生成拼音和首字母 ==========
+        // vod_en 为空时，根据视频名称生成拼音
         if(empty($data['vod_en'])){
             $data['vod_en'] = Pinyin::get($data['vod_name']);
         }
-
+        // vod_letter 为空时，取拼音首字母并转大写
         if(empty($data['vod_letter'])){
             $data['vod_letter'] = strtoupper(substr($data['vod_en'],0,1));
         }
 
+        // ========== 步骤5: 处理内容中的图片URL ==========
+        // 将图片URL中的协议 (http:/https:) 替换为 mac: 前缀
+        // 这样前台显示时可以根据当前协议自动适配
         if(!empty($data['vod_content'])) {
+            // 正则匹配所有 img 标签的 src 属性
             $pattern_src = '/<img[\s\S]*?src\s*=\s*[\"|\'](.*?)[\"|\'][\s\S]*?>/';
             @preg_match_all($pattern_src, $data['vod_content'], $match_src1);
             if (!empty($match_src1)) {
                 foreach ($match_src1[1] as $v1) {
+                    // 将协议替换为 mac: 前缀 (如 http://xxx → mac://xxx)
                     $v2 = str_replace($GLOBALS['config']['upload']['protocol'] . ':', 'mac:', $v1);
                     $data['vod_content'] = str_replace($v1, $v2, $data['vod_content']);
                 }
@@ -892,33 +908,53 @@ class Vod extends Base {
             unset($match_src1);
         }
 
+        // ========== 步骤6: 自动生成简介 ==========
+        // vod_blurb 为空时，从 vod_content 提取前100字符作为简介
         if(empty($data['vod_blurb'])){
             $data['vod_blurb'] = mac_substring( strip_tags($data['vod_content']) ,100);
         }
 
+        // ========== 步骤7: 播放/下载地址初始化 ==========
+        // 确保播放和下载URL不为null
         if(empty($data['vod_play_url'])){
             $data['vod_play_url'] = '';
         }
         if(empty($data['vod_down_url'])){
             $data['vod_down_url'] = '';
         }
+
+        // ========== 步骤8: 处理截图URL ==========
+        // 将换行符转换为 # 分隔多张截图
         if(!empty($data['vod_pic_screenshot'])){
             $data['vod_pic_screenshot'] = str_replace( array(chr(10),chr(13)), array('','#'),$data['vod_pic_screenshot']);
         }
+
+        // ========== 步骤9: 格式化播放地址组 ==========
+        // 表单提交的是数组，存储时转换为 $$$ 分隔的字符串
+        // 格式: 来源1$$$来源2  对应  地址组1$$$地址组2
+        // 每组地址内多集用 # 分隔: 第1集$url1#第2集$url2
         if(!empty($data['vod_play_from'])) {
+            // 多个播放来源用 $$$ 分隔 (如: hnm3u8$$$kbm3u8)
             $data['vod_play_from'] = join('$$$', $data['vod_play_from']);
+            // 多个服务器组用 $$$ 分隔
             $data['vod_play_server'] = join('$$$', $data['vod_play_server']);
+            // 多个备注用 $$$ 分隔
             $data['vod_play_note'] = join('$$$', $data['vod_play_note']);
+            // 多组播放地址用 $$$ 分隔
             $data['vod_play_url'] = join('$$$', $data['vod_play_url']);
+            // 将换行符转换为 # 分隔多集
             $data['vod_play_url'] = str_replace( array(chr(10),chr(13)), array('','#'),$data['vod_play_url']);
         }
         else{
+            // 无播放来源时，所有播放相关字段置空
             $data['vod_play_from'] = '';
             $data['vod_play_server'] = '';
             $data['vod_play_note'] = '';
             $data['vod_play_url'] = '';
         }
 
+        // ========== 步骤10: 格式化下载地址组 ==========
+        // 格式与播放地址相同
         if(!empty($data['vod_down_from'])) {
             $data['vod_down_from'] = join('$$$', $data['vod_down_from']);
             $data['vod_down_server'] = join('$$$', $data['vod_down_server']);
@@ -926,49 +962,71 @@ class Vod extends Base {
             $data['vod_down_url'] = join('$$$', $data['vod_down_url']);
             $data['vod_down_url'] = str_replace(array(chr(10),chr(13)), array('','#'),$data['vod_down_url']);
         }else{
+            // 无下载来源时，所有下载相关字段置空
             $data['vod_down_from']='';
             $data['vod_down_server']='';
             $data['vod_down_note']='';
             $data['vod_down_url']='';
         }
         
+        // ========== 步骤11: 处理更新时间和TAG ==========
+        // uptime=1 时更新视频时间戳
         if($data['uptime']==1){
             $data['vod_time'] = time();
         }
+        // uptag=1 时自动从名称和内容提取TAG
         if($data['uptag']==1){
             $data['vod_tag'] = mac_get_tag($data['vod_name'], $data['vod_content']);
         }
+        // 清除临时标记字段，不存入数据库
         unset($data['uptime']);
         unset($data['uptag']);
 
+        // ========== 步骤12: XSS过滤和长度裁剪 ==========
+        // 调用验证器的格式化方法，防止XSS攻击和数据溢出
         $data = VodValidate::formatDataBeforeDb($data);
-        if(!empty($data['vod_id'])){
 
+        // ========== 步骤13: 执行数据库操作 ==========
+        if(!empty($data['vod_id'])){
+            // ----- 编辑模式 -----
             $where=[];
             $where['vod_id'] = ['eq',$data['vod_id']];
+            // allowField(true) 自动过滤非数据表字段
             $res = $this->allowField(true)->where($where)->update($data);
-            //编辑 先获取到之前的name
+
+            // 更新重复视频缓存
+            // 如果视频名称被修改，需要更新新旧名称的重复缓存
             $old_name = $this->where('vod_id',$data['vod_id'])->value('vod_name');
             if($old_name!=$data['vod_name']){
+                // 名称变更，更新新旧两个名称的缓存
                 $this->cacheRepeatWithName($old_name);
                 $this->cacheRepeatWithName($data['vod_name']);
             }else{
+                // 名称未变，只更新当前名称缓存
                 $this->cacheRepeatWithName($data['vod_name']);
             }
         }
         else{
+            // ----- 新增模式 -----
+            // 初始化剧情相关字段
             $data['vod_plot'] = 0;
             $data['vod_plot_name']='';
             $data['vod_plot_detail']='';
+            // 设置添加时间和更新时间
             $data['vod_time_add'] = time();
             $data['vod_time'] = time();
+            // insert 第三个参数 true 表示返回插入ID
             $res = $this->allowField(true)->insert($data, false, true);
+
+            // 如果启用了视频搜索模块，更新搜索索引
             if ($res > 0 && model('VodSearch')->isFrontendEnabled()) {
                 model('VodSearch')->checkAndUpdateTopResults(['vod_id' => $res] + $data);
             }
-            //新增 针对当前name 判断是否重复
+            // 更新新增视频名称的重复缓存
             $this->cacheRepeatWithName($data['vod_name']);
         }
+
+        // ========== 步骤14: 返回操作结果 ==========
         if(false === $res){
             return ['code'=>1002,'msg'=>lang('save_err').'：'.$this->getError() ];
         }
