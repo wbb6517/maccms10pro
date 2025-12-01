@@ -1,7 +1,47 @@
+<!--
+视频播放器编辑页面 (VodPlayer Edit Template)
+============================================================
+
+【页面说明】
+后台 "视频 → 播放器管理" 的添加/编辑页面
+在iframe弹窗中显示，包含基本设置和播放器代码两个标签页
+
+【标签页】
+1. 基本设置: 播放器配置参数
+2. 播放器代码: JS代码编辑区域
+
+【基本设置字段】
+- 状态(status): 启用/禁用
+- 编码(from): 唯一标识，编辑时只读
+- 名称(show): 播放器显示名称
+- 备注(des): 描述信息
+- 打开方式(target): 当前窗口/新窗口
+- 解析状态(ps): 启用/禁用解析
+- 解析接口(parse): 独立解析URL
+- 排序(sort): 数字越大越靠前
+- 提示(tip): 鼠标悬停提示
+
+【播放器代码】
+- 文件路径: /static/player/{from}.js
+- 代码(code): JavaScript播放器代码
+
+【表单验证】
+- 编码(from): 必填
+- 名称(show): 必填
+
+【模板变量】
+- info: 播放器配置信息 (编辑时)
+
+@template    admin@vodplayer/info
+@controller  app\admin\controller\Vodplayer::info()
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
     <form class="layui-form layui-form-pane" method="post" action="">
+        <!-- CSRF Token -->
         <input type="hidden" name="__token__" value="{$Request.token}" />
+
+        <!-- 标签页切换 -->
         <div class="layui-tab">
             <ul class="layui-tab-title">
                 <li class="layui-this">基本设置</li>
@@ -9,8 +49,10 @@
             </ul>
             <div class="layui-tab-content">
 
+                <!-- ========== 标签页1: 基本设置 ========== -->
                 <div class="layui-tab-item layui-show" id="movementTable">
 
+                    <!-- 状态: 启用/禁用 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('status')}：</label>
                         <div class="layui-input-block">
@@ -18,24 +60,32 @@
                             <input name="status" type="radio" id="rad-2" value="1" title="{:lang('enable')}" {if condition="$info['status'] eq 1"}checked {/if}>
                         </div>
                     </div>
+
+                    <!-- 编码: 唯一标识，用于匹配服务器组，编辑时只读 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('code')}：</label>
                         <div class="layui-input-block">
                             <input type="text" class="layui-input" value="{$info.from}" placeholder="{:lang('admin/vodplayer/code_tip')}" id="from" name="from" {if condition="$info.from neq ''"} readonly="readonly"{/if}>
                         </div>
                     </div>
+
+                    <!-- 名称: 前台显示的播放器名称 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('name')}：</label>
                         <div class="layui-input-block">
                             <input type="text" class="layui-input" value="{$info.show}" placeholder="" id="show" name="show">
                         </div>
                     </div>
+
+                    <!-- 备注: 播放器描述信息 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('remarks')}：</label>
                         <div class="layui-input-block">
                             <input type="text" class="layui-input" value="{$info.des}" placeholder="" id="des" name="des">
                         </div>
                     </div>
+
+                    <!-- 打开方式: 当前窗口(_self) / 新窗口(_blank) -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('target')}：</label>
                         <div class="layui-input-block">
@@ -43,6 +93,8 @@
                             <input name="target" type="radio" value="_blank" title="{:lang('blank')}" {if condition="$info['target'] eq '_blank'"}checked {/if}>
                         </div>
                     </div>
+
+                    <!-- 解析状态: 是否启用视频解析 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('status_parse')}：</label>
                         <div class="layui-input-block">
@@ -50,18 +102,24 @@
                             <input name="ps" type="radio" value="1" title="{:lang('enable')}" {if condition="$info['ps'] eq 1"}checked {/if}>
                         </div>
                     </div>
+
+                    <!-- 解析接口: 该播放器专用的解析URL，优先于全局解析 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('admin/vodplayer/api_url')}：</label>
                         <div class="layui-input-block">
                             <input type="text" class="layui-input" value="{$info.parse}" placeholder="{:lang('admin/vodplayer/api_url_tip')}" id="parse" name="parse">
                         </div>
                     </div>
+
+                    <!-- 排序: 数字越大越靠前 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('sort')}：</label>
                         <div class="layui-input-block">
                             <input type="text" class="layui-input" value="{$info.sort}" placeholder="{:lang('admin/vodplayer/sort_tip')}" id="sort" name="sort">
                         </div>
                     </div>
+
+                    <!-- 提示: 鼠标悬停时显示的提示文字 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('tip')}：</label>
                         <div class="layui-input-block">
@@ -69,7 +127,10 @@
                         </div>
                     </div>
               </div>
+
+                <!-- ========== 标签页2: 播放器代码 ========== -->
                 <div class="layui-tab-item" id="movementTable">
+                    <!-- JS文件路径 (只读展示) -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('file')}：</label>
                         <div class="layui-input-block">
@@ -77,6 +138,8 @@
 
                         </div>
                     </div>
+
+                    <!-- 播放器JS代码编辑区 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('code')}：</label>
                         <div class="layui-input-block">
@@ -85,6 +148,7 @@
                     </div>
                 </div>
 
+        <!-- 提交按钮 -->
         <div class="layui-form-item center">
             <div class="layui-input-block">
                 <button type="submit" class="layui-btn" lay-submit="" lay-filter="formSubmit" data-child="true">{:lang('btn_save')}</button>
@@ -98,18 +162,20 @@
 <script type="text/javascript">
 
     layui.use(['form', 'layer'], function () {
-        // 操作对象
+        // Layui 组件
         var form = layui.form
                 , layer = layui.layer
                 , $ = layui.jquery;
 
-        // 验证
+        // 表单验证规则
         form.verify({
+            // 编码不能为空
             from: function (value) {
                 if (value == "") {
                     return "{:lang('admin/vodplayer/code_empty')}";
                 }
             },
+            // 名称不能为空
             show: function (value) {
                 if (value == "") {
                     return "{:lang('name_empty')}";

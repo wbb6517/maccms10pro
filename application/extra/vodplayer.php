@@ -1,6 +1,57 @@
 <?php
+/**
+ * 视频播放器配置文件 (VodPlayer Configuration)
+ * ============================================================
+ *
+ * 【文件说明】
+ * 存储视频播放器的配置数据
+ * 由后台 "视频 → 播放器管理" 功能自动维护
+ *
+ * 【数据结构】
+ * 数组键名 = 播放器编码 (from)
+ * 数组值 = 播放器配置信息
+ *
+ * 【配置字段说明】
+ * ┌──────────────┬─────────────────────────────────────────┐
+ * │ 字段名        │ 说明                                     │
+ * ├──────────────┼─────────────────────────────────────────┤
+ * │ from         │ 播放器编码 (唯一标识，需与服务器组匹配)     │
+ * │ show         │ 显示名称 (前台展示，如"DPlayer播放器")    │
+ * │ des          │ 描述/备注                                │
+ * │ tip          │ 提示信息 (如"无需安装任何插件")           │
+ * │ sort         │ 排序值 (数字越大越靠前)                   │
+ * │ status       │ 状态: 0=禁用, 1=启用                     │
+ * │ ps           │ 解析状态: 0=不解析, 1=启用解析            │
+ * │ parse        │ 独立解析接口URL (ps=1时生效)              │
+ * │ target       │ 打开方式: _self=当前窗口, _blank=新窗口   │
+ * └──────────────┴─────────────────────────────────────────┘
+ *
+ * 【播放器JS代码】
+ * JS代码存储在: static/player/{from}.js
+ * 前台播放时会加载对应的JS文件
+ *
+ * 【与服务器组的关系】
+ * - 播放器编码需与服务器组编码(vodserver.from)匹配
+ * - 视频播放地址格式: "服务器组编码$播放URL"
+ * - 播放时根据编码选择对应播放器
+ *
+ * 【内置播放器说明】
+ * - dplayer: DPlayer H5播放器，支持弹幕
+ * - videojs: VideoJS H5播放器
+ * - iva: IVA H5播放器
+ * - iframe: iframe嵌入外链
+ * - link: 外链跳转播放
+ * - swf: Flash播放器
+ * - flv: FLV格式播放
+ *
+ * 【使用方法】
+ * $players = config('vodplayer');  // 获取所有播放器
+ * $player = config('vodplayer.dplayer');  // 获取指定播放器
+ *
+ * @package     app\extra
+ */
 return array (
-  'dplayer' => 
+  'dplayer' =>
   array (
     'status' => '1',
     'from' => 'dplayer',
@@ -13,7 +64,7 @@ return array (
     'tip' => '无需安装任何插件',
     'id' => 'dplayer',
   ),
-  'videojs' => 
+  'videojs' =>
   array (
     'status' => '1',
     'sort' => '907',
@@ -25,7 +76,7 @@ return array (
     'tip' => '无需安装任何插件',
     'id' => 'videojs',
   ),
-  'iva' => 
+  'iva' =>
   array (
     'status' => '1',
     'from' => 'iva',
@@ -38,7 +89,7 @@ return array (
     'tip' => '无需安装任何插件',
     'id' => 'iva',
   ),
-  'iframe' => 
+  'iframe' =>
   array (
     'status' => '1',
     'from' => 'iframe',
@@ -50,7 +101,7 @@ return array (
     'tip' => '无需安装任何插件',
     'id' => 'iframe',
   ),
-  'link' => 
+  'link' =>
   array (
     'status' => '1',
     'sort' => '904',
@@ -62,7 +113,7 @@ return array (
     'tip' => '无需安装任何插件',
     'id' => 'link',
   ),
-  'swf' => 
+  'swf' =>
   array (
     'status' => '1',
     'sort' => '903',
@@ -74,7 +125,7 @@ return array (
     'tip' => '无需安装任何插件',
     'id' => 'swf',
   ),
-  'flv' => 
+  'flv' =>
   array (
     'status' => '1',
     'from' => 'flv',

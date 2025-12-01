@@ -1,29 +1,29 @@
-{*
- * 视频服务器组编辑页面 (VodServer Edit Template)
- * ============================================================
- *
- * 【页面说明】
- * 后台 "视频 → 服务器组管理" 的添加/编辑页面
- * 在iframe弹窗中显示，用于配置服务器组信息
- *
- * 【表单字段】
- * - 状态(status): 启用/禁用
- * - 编码(from): 唯一标识，编辑时只读
- * - 名称(show): 前台显示名称
- * - 地址(des): 服务器描述/URL
- * - 排序(sort): 数字越大越靠前
- * - 提示(tip): 鼠标悬停提示文字
- *
- * 【表单验证】
- * - 编码(from): 必填
- * - 名称(show): 必填
- *
- * 【模板变量】
- * - info: 服务器组配置信息 (编辑时)
- *
- * @template    admin@vodserver/info
- * @controller  app\admin\controller\Vodserver::info()
- *}
+<!--
+视频服务器组编辑页面 (VodServer Edit Template)
+============================================================
+
+【页面说明】
+后台 "视频 → 服务器组管理" 的添加/编辑页面
+在iframe弹窗中显示，用于配置服务器组信息
+
+【表单字段】
+- 状态(status): 启用/禁用
+- 编码(from): 唯一标识，编辑时只读
+- 名称(show): 前台显示名称
+- 地址(des): 服务器描述/URL
+- 排序(sort): 数字越大越靠前
+- 提示(tip): 鼠标悬停提示文字
+
+【表单验证】
+- 编码(from): 必填
+- 名称(show): 必填
+
+【模板变量】
+- info: 服务器组配置信息 (编辑时)
+
+@template    admin@vodserver/info
+@controller  app\admin\controller\Vodserver::info()
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
     <form class="layui-form layui-form-pane" method="post" action="" id="movementTable">

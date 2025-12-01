@@ -1,49 +1,97 @@
+<!--
+视频播放器列表页面 (VodPlayer List Template)
+============================================================
+
+【页面说明】
+后台 "视频 → 播放器管理" 的列表页面
+显示所有已配置的视频播放器
+
+【功能按钮】
+- 添加: 弹出iframe添加新播放器
+- 导入: 跳转到导入页面
+- 状态: 批量修改启用/禁用状态
+- 解析状态: 批量修改解析开关
+
+【列表字段】
+- 排序(sort): 数字越大越靠前
+- 编码(from): 唯一标识，需与服务器组匹配
+- 名称(show): 播放器显示名称
+- 状态(status): 启用/禁用
+- 解析状态(ps): 是否启用解析
+- 打开方式(target): 当前窗口/新窗口
+- 独立解析地址(parse): 该播放器专用的解析接口
+- 备注(des): 描述信息
+- 提示(tip): 鼠标悬停提示
+
+【操作按钮】
+- 导出: 导出播放器配置为txt文件
+- 编辑: 弹出iframe编辑播放器
+- 删除: 删除播放器配置
+
+【模板变量】
+- list: 播放器配置数组
+
+@template    admin@vodplayer/index
+@controller  app\admin\controller\Vodplayer::index()
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
     <div class="my-toolbar-box">
 
         <div class="flex gap-5 overflow-x-auto overflow-y-hidden">
+            <!-- 添加按钮: 弹出iframe添加新播放器 -->
             <a data-href="{:url('info')}" class="layui-btn layui-btn-primary j-iframe"><i class="layui-icon">&#xe654;</i>{:lang('add')}</a>
+            <!-- 导入按钮: 跳转到导入页面 -->
             <a href="{:url('import')}" class="layui-btn layui-btn-primary" ><i class="layui-icon">&#xe654;</i>{:lang('import')}</a>
+            <!-- 批量修改状态 -->
             <a data-href="{:url('index/select')}?tab=vod&col=status&tpl=select_state&url=vodplayer/field" data-width="470" data-height="100" data-checkbox="1" class="layui-btn layui-btn-primary j-select"><i class="layui-icon">&#xe620;</i>{:lang('status')}</a>
+            <!-- 批量修改解析状态 -->
             <a data-href="{:url('index/select')}?tab=vod&col=ps&tpl=select_state&url=vodplayer/field" data-width="470" data-height="100" data-checkbox="1" class="layui-btn layui-btn-primary j-select"><i class="layui-icon">&#xe620;</i>{:lang('status_parse')}</a>
         </div>
 
     </div>
 
     <form class="layui-form " method="post" id="pageListForm">
+        <!-- 播放器列表表格 -->
         <table class="layui-table" lay-size="sm">
             <thead>
             <tr>
                 <th width="25"><input type="checkbox" lay-skin="primary" lay-filter="allChoose"></th>
-                <th width="60">{:lang('sort')}</th>
-                <th width="60">{:lang('code')}</th>
-                <th width="130">{:lang('name')}</th>
-                <th width="60">{:lang('status')}</th>
-                <th width="80">{:lang('status_parse')}</th>
-                <th width="80">{:lang('target')}</th>
-                <th width="130">{:lang('admin/vodplayer/alone_api_url')}</th>
-                <th width="130">{:lang('remarks')}</th>
-                <th >{:lang('tip')}</th>
-                <th width="200">{:lang('opt')}</th>
+                <th width="60">{:lang('sort')}</th>                          <!-- 排序值 -->
+                <th width="60">{:lang('code')}</th>                          <!-- 编码 -->
+                <th width="130">{:lang('name')}</th>                         <!-- 名称 -->
+                <th width="60">{:lang('status')}</th>                        <!-- 状态 -->
+                <th width="80">{:lang('status_parse')}</th>                  <!-- 解析状态 -->
+                <th width="80">{:lang('target')}</th>                        <!-- 打开方式 -->
+                <th width="130">{:lang('admin/vodplayer/alone_api_url')}</th><!-- 独立解析地址 -->
+                <th width="130">{:lang('remarks')}</th>                      <!-- 备注 -->
+                <th >{:lang('tip')}</th>                                     <!-- 提示 -->
+                <th width="200">{:lang('opt')}</th>                          <!-- 操作 -->
             </tr>
             </thead>
 
+            <!-- 遍历播放器列表 -->
             {volist name="list" id="vo"}
             <tr>
                 <td><input type="checkbox" name="ids[]" value="{$vo.from}" class="layui-checkbox checkbox-ids" lay-skin="primary"></td>
                 <td>{$vo.sort}</td>
                 <td>{$vo.from}</td>
                 <td>{$vo.show}</td>
+                <!-- 状态显示: 绿色=启用, 红色=禁用 -->
                 <td>{if condition="$vo.status eq 1"}<span class="layui-badge layui-bg-green">{:lang('enable')}</span>{else}<span class="layui-badge">{:lang('disable')}</span>{/if} </td>
+                <!-- 解析状态: 绿色=启用, 红色=禁用 -->
                 <td>{if condition="$vo.ps eq 1"}<span class="layui-badge layui-bg-green">{:lang('enable')}</span>{else}<span class="layui-badge">{:lang('disable')}</span>{/if} </td>
+                <!-- 打开方式: 绿色=当前窗口, 红色=新窗口 -->
                 <td>{if condition="$vo.target neq '_blank'"}<span class="layui-badge layui-bg-green">{:lang('current')}</span>{else}<span class="layui-badge">{:lang('blank')}</span>{/if} </td>
                 <td>{$vo.parse}</td>
                 <td>{$vo.des}</td>
                 <td>{$vo.tip}</td>
                 <td>
+                    <!-- 导出按钮: 下载播放器配置 -->
                     <a class="layui-badge-rim" href="{:url('export?id='.$vo['from'])}" title="{:lang('export')}" style="padding: 0 15px;">{:lang('export')}</a>
+                    <!-- 编辑按钮 -->
                     <a class="layui-badge-rim j-iframe" data-href="{:url('info?id='.$vo['from'])}" href="javascript:;" title="{:lang('edit')}">{:lang('edit')}</a>
+                    <!-- 删除按钮 -->
                     <a class="layui-badge-rim j-tr-del" data-href="{:url('del?ids='.$vo['from'])}" href="javascript:;" title="{:lang('del')}">{:lang('del')}</a>
                 </td>
             </tr>
@@ -57,7 +105,7 @@
 
 <script type="text/javascript">
     layui.use(['form','laypage', 'layer'], function() {
-        // 操作对象
+        // Layui 组件
         var form = layui.form
                 , layer = layui.layer
                 , $ = layui.jquery;

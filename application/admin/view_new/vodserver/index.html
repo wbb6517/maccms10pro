@@ -1,32 +1,32 @@
-{*
- * 视频服务器组列表页面 (VodServer List Template)
- * ============================================================
- *
- * 【页面说明】
- * 后台 "视频 → 服务器组管理" 的列表页面
- * 显示所有已配置的视频服务器组/播放源分组
- *
- * 【功能按钮】
- * - 添加: 弹出iframe添加新服务器组
- *
- * 【列表字段】
- * - 排序(sort): 数字越大越靠前
- * - 编码(from): 唯一标识，用于匹配播放器
- * - 状态(status): 启用/禁用
- * - 名称(show): 前台显示名称
- * - 备注(des): 描述信息
- * - 提示(tip): 鼠标悬停提示
- *
- * 【操作按钮】
- * - 编辑: 弹出iframe编辑服务器组
- * - 删除: 删除服务器组配置
- *
- * 【模板变量】
- * - list: 服务器组配置数组
- *
- * @template    admin@vodserver/index
- * @controller  app\admin\controller\Vodserver::index()
- *}
+<!--
+视频服务器组列表页面 (VodServer List Template)
+============================================================
+
+【页面说明】
+后台 "视频 → 服务器组管理" 的列表页面
+显示所有已配置的视频服务器组/播放源分组
+
+【功能按钮】
+- 添加: 弹出iframe添加新服务器组
+
+【列表字段】
+- 排序(sort): 数字越大越靠前
+- 编码(from): 唯一标识，用于匹配播放器
+- 状态(status): 启用/禁用
+- 名称(show): 前台显示名称
+- 备注(des): 描述信息
+- 提示(tip): 鼠标悬停提示
+
+【操作按钮】
+- 编辑: 弹出iframe编辑服务器组
+- 删除: 删除服务器组配置
+
+【模板变量】
+- list: 服务器组配置数组
+
+@template    admin@vodserver/index
+@controller  app\admin\controller\Vodserver::index()
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
     <div class="my-toolbar-box">

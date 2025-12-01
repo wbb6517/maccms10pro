@@ -1,17 +1,59 @@
+<!--
+视频播放器导入页面 (VodPlayer Import Template)
+============================================================
+
+【页面说明】
+后台 "视频 → 播放器管理 → 导入" 的上传页面
+用于从txt文件导入播放器配置
+
+【导入格式】
+- 文件类型: txt
+- 数据格式: base64编码的JSON字符串
+- 文件来源: 由播放器列表页的"导出"功能生成
+
+【导入内容】
+- 播放器配置信息 (status, from, show, des, tip, sort, ps, parse, target)
+- 播放器JS代码 (code)
+
+【功能按钮】
+- 返回: 返回播放器列表页
+- 上传: 选择txt文件上传导入
+
+【导入流程】
+1. 点击"上传"按钮选择txt文件
+2. 自动上传到服务器
+3. 服务器解码并验证数据
+4. 保存配置到vodplayer.php
+5. 保存JS代码到static/player/{from}.js
+6. 导入成功后自动刷新页面
+
+【注意事项】
+- 同名播放器将被覆盖
+- 仅支持txt格式文件
+
+@template    admin@vodplayer/import
+@controller  app\admin\controller\Vodplayer::import()
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
 
     <div class="layui-tab layui-tab-brief" lay-filter="tabs">
+        <!-- 标签页导航 -->
         <ul class="layui-tab-title">
             <li class="btn-local" ><a href="{:url('index')}">{:lang('return')}</a></li>
             <li class="layui-this"><a href="{:url('add')}">{:lang('import')}</a></li>
         </ul>
 
         <div class="layui-tab-content">
+            <!-- 导入说明提示 -->
             <blockquote class="layui-elem-quote layui-quote-nm">
                 {:lang('admin/vodplayer/import_tip')}
             </blockquote>
+
+            <!-- CSRF Token -->
             <input type="hidden" id="token" name="__token__" value="{$Request.token}" />
+
+            <!-- 上传按钮 -->
             <button type="button" class="layui-btn layui-upload" id="upload1">{:lang('upload')}</button>
         </div>
     </div>
@@ -23,22 +65,26 @@
 <script type="text/javascript">
     var url='';
     layui.use(['form','laypage', 'layer','upload','element'], function() {
-        // 操作对象
+        // Layui 组件
         var form = layui.form
             , layer = layui.layer
             , upload = layui.upload
             ,element = layui.element;
 
+        // 文件上传配置
         upload.render({
-            elem: '.layui-upload'
-            ,url: "{:url('vodplayer/import')}?__token__=" + $('#token').val()
-            ,method: 'post'
-            ,exts:'txt'
+            elem: '.layui-upload'                                    // 绑定上传按钮
+            ,url: "{:url('vodplayer/import')}?__token__=" + $('#token').val()  // 上传接口
+            ,method: 'post'                                          // 请求方式
+            ,exts:'txt'                                              // 限制txt格式
             ,before: function(input) {
+                // 上传前显示loading
                 layer.msg("{:lang('upload_ing')}", {time:3000000});
             },done: function(res, index, upload) {
+                // 上传完成回调
                 var obj = this.item;
                 layer.msg(res.msg);
+                // 2秒后刷新页面
                 setTimeout(function () {
                     layer.closeAll();
                     location.reload();
