@@ -526,8 +526,16 @@ class Collect extends Base {
                 if (!empty($v['vod_time_update']) && strlen($v['vod_time_update']) == 10) {
                     $v['vod_time'] = (int)$v['vod_time_update'];
                 }
+
+                // ========== 审核状态设置 (菜单: 视频-未审核视频) ==========
+                // config['status'] 来自采集配置，决定采集数据的初始审核状态
+                // 0=未审核 (需人工审核后才在前台显示)
+                // 1=已审核 (采集后直接在前台显示)
+                // 用途: 控制采集内容是否需要人工审核后才发布
+                // 查看未审核视频: 后台菜单 → 视频 → 未审核视频 (vod/data?status=0)
                 $v['vod_status'] = intval($config['status']);
                 $v['vod_lock'] = intval($v['vod_lock']);
+                // 如果数据源提供了审核状态，优先使用数据源的值
                 if(!empty($v['vod_status'])) {
                     $v['vod_status'] = intval($v['vod_status']);
                 }

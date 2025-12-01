@@ -431,6 +431,11 @@ class Vod extends Base {
                 $pageurl = mac_url($pageurl,$param);
             }
         }
+
+        // ========== 前台审核状态过滤 ==========
+        // 前台只显示已审核的视频 (vod_status=1)
+        // 未审核的视频 (vod_status=0) 不在前台展示
+        // 管理员可在后台 "视频 → 未审核视频" 中查看和批量审核
         $where['vod_status'] = ['eq',1];
         if(!empty($ids)) {
             if($ids!='all'){
