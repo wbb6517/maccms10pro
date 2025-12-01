@@ -136,27 +136,43 @@ class Vod extends Base
         if(!empty($param['level'])){
             $where['vod_level'] = ['eq',$param['level']];
         }
+        // ========== 审核状态筛选 ==========
+        // status=0: 未审核, status=1: 已审核
         if(in_array($param['status'],['0','1'])){
             $where['vod_status'] = ['eq',$param['status']];
         }
+        // ========== 版权状态筛选 ==========
+        // copyright=0: 无版权, copyright=1: 有版权
         if(in_array($param['copyright'],['0','1'])){
             $where['vod_copyright'] = ['eq',$param['copyright']];
         }
+        // ========== 完结状态筛选 ==========
+        // isend=0: 连载中, isend=1: 已完结
         if(in_array($param['isend'],['0','1'])){
             $where['vod_isend'] = ['eq',$param['isend']];
         }
+        // ========== 已锁定视频筛选 (菜单: 视频-已锁定视频) ==========
+        // 访问方式: vod/data?lock=1
+        // 锁定状态: vod_lock=1 表示视频被锁定，禁止采集更新覆盖
+        // 用途: 保护重要视频数据不被采集程序误覆盖
         if(!empty($param['lock'])){
             $where['vod_lock'] = ['eq',$param['lock']];
         }
+        // ========== 资源状态筛选 ==========
+        // 自定义状态字段，如: 正片、预告、花絮等
         if(!empty($param['state'])){
             $where['vod_state'] = ['eq',$param['state']];
         }
+        // ========== 地区筛选 ==========
         if(!empty($param['area'])){
             $where['vod_area'] = ['eq',$param['area']];
         }
+        // ========== 语言筛选 ==========
         if(!empty($param['lang'])){
             $where['vod_lang'] = ['eq',$param['lang']];
         }
+        // ========== 剧情状态筛选 ==========
+        // plot=0: 无分集剧情, plot=1: 有分集剧情
         if(in_array($param['plot'],['0','1'])){
             $where['vod_plot'] = ['eq',$param['plot']];
         }
@@ -812,16 +828,24 @@ class Vod extends Base
     public function field()
     {
         $param = input();
-        $ids = $param['ids'];
-        $col = $param['col'];
-        $val = $param['val'];
-        $start = $param['start'];
-        $end = $param['end'];
+        $ids = $param['ids'];      // 视频ID列表 (逗号分隔)
+        $col = $param['col'];      // 要修改的字段名
+        $val = $param['val'];      // 字段新值
+        $start = $param['start'];  // 随机范围起始 (点击量用)
+        $end = $param['end'];      // 随机范围结束 (点击量用)
 
+        // 分类修改必须选择目标分类
         if ($col == 'type_id' && $val==''){
             return $this->error("请选择分类提交");
         }
 
+        // 批量修改支持的字段白名单:
+        // - vod_status    : 审核状态 (0=未审核, 1=已审核)
+        // - vod_lock      : 锁定状态 (0=未锁定, 1=已锁定) - 锁定后采集不会覆盖
+        // - vod_level     : 推荐等级 (0-9, 9=幻灯片)
+        // - vod_hits      : 点击量 (支持随机范围)
+        // - type_id       : 分类ID
+        // - vod_copyright : 版权状态 (0=无版权, 1=有版权)
         if(!empty($ids) && in_array($col,['vod_status','vod_lock','vod_level','vod_hits','type_id','vod_copyright'])){
             $where=[];
             $where['vod_id'] = ['in',$ids];

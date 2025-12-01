@@ -794,14 +794,22 @@ class Collect extends Base {
                         }
                     }
                 } else {
-                    // 更新
+                    // ========== 更新已存在的视频 ==========
+                    // 检查是否允许更新
                     if(empty($config['uprule'])){
+                        // 未设置更新规则，跳过更新
                         $des = lang('model/collect/uprule_empty');
                     }
+                    // ===== 锁定检测 (核心保护机制) =====
+                    // vod_lock=1 表示视频被锁定，禁止采集更新
+                    // 用途: 保护手动编辑的重要视频数据不被采集覆盖
+                    // 设置方式: 后台视频列表 → 批量操作 → 锁定
                     elseif ($info['vod_lock'] == 1) {
+                        // 已锁定的视频跳过更新，返回锁定提示
                         $des = lang('model/collect/data_lock');
                     }
                     elseif($param['opt'] == 1){
+                        // opt=1 表示只采集新数据，不更新已存在的
                         $des = lang('model/collect/not_check_update');
                     }
                     else {
