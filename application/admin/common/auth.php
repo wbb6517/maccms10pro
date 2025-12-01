@@ -1,4 +1,41 @@
 <?php
+/**
+ * 后台菜单与权限配置 (Admin Menu & Auth Config)
+ * ============================================================
+ *
+ * 【文件说明】
+ * 定义后台左侧菜单结构和权限控制
+ * 每个菜单项对应一个控制器/方法，用于权限验证
+ *
+ * 【菜单结构】
+ * - 一级菜单: 带图标的分组 (如: 首页、视频、文章等)
+ * - 二级菜单: 显示在左侧导航的链接
+ * - 隐藏菜单: show=0, 用于权限验证但不显示
+ *
+ * 【菜单配置字段】
+ * - show       : 是否显示在菜单中 (1=显示, 0=隐藏)
+ * - name       : 菜单名称 (使用 lang() 多语言)
+ * - controller : 控制器名称
+ * - action     : 方法名称
+ * - param      : URL参数 (用于筛选链接，如 url=1)
+ *
+ * 【快捷筛选菜单】
+ * 视频模块提供了多个快捷筛选入口:
+ * - 无地址视频: vod/data?url=1 (播放地址为空)
+ * - 已锁定视频: vod/data?lock=1
+ * - 未审核视频: vod/data?status=0
+ * - 付费视频  : vod/data?points=1
+ * - 有剧情视频: vod/data?plot=1
+ * - 重复数据  : vod/data?repeat=1
+ *
+ * 【权限验证】
+ * 用户登录后根据所属角色的权限配置
+ * 验证是否有权访问对应的控制器/方法
+ *
+ * @package     app\admin\common
+ * @author      MacCMS
+ * @version     1.0
+ */
 return array (
   1 => 
   array (
@@ -615,187 +652,234 @@ return array (
       ),
     ),
   ),
-  4 => 
+
+  /*
+   * ============================================================
+   * 视频模块 (Video Module)
+   * ============================================================
+   *
+   * 【模块说明】
+   * MacCMS 最核心的内容管理模块，包含视频数据的增删改查
+   *
+   * 【子菜单】
+   * - 服务器组    : 视频源服务器配置
+   * - 播放器      : 播放器类型配置
+   * - 下载器      : 下载器类型配置
+   * - 视频数据    : 视频内容管理 (核心)
+   * - 添加视频    : 新增视频入口
+   * - 批量操作视频: 批量修改视频数据
+   * - 演员库      : 演员数据管理
+   * - 角色库      : 角色数据管理
+   *
+   * 【快捷筛选菜单】
+   * 以下菜单复用 vod/data 页面，通过 param 参数筛选:
+   * - 无地址视频  : url=1     → vod_play_url = ''
+   * - 已锁定视频  : lock=1    → vod_lock = 1
+   * - 未审核视频  : status=0  → vod_status = 0
+   * - 需积分视频  : points=1  → vod_points_play|down > 0
+   * - 有分集剧情  : plot=1    → vod_plot = 1
+   * - 重名视频数据: repeat=1  → 同名视频筛选
+   * ============================================================
+   */
+  4 =>
   array (
     'name' => lang('menu/vod'),
     'icon' => 'xe639',
-    'sub' => 
+    'sub' =>
     array (
-      41 => 
+      // ----- 服务器组管理 -----
+      41 =>
       array (
         'show' => 1,
         'name' => lang('menu/server'),
         'controller' => 'vodserver',
         'action' => 'index',
       ),
-      4101 => 
+      4101 =>
       array (
         'show' => 0,
         'name' => '--服务器组信息维护',
         'controller' => 'vodserver',
         'action' => 'info',
       ),
-      4102 => 
+      4102 =>
       array (
         'show' => 0,
         'name' => '--服务器组删除',
         'controller' => 'vodserver',
         'action' => 'del',
       ),
-      4103 => 
+      4103 =>
       array (
         'show' => 0,
         'name' => '--服务器组状态',
         'controller' => 'vodserver',
         'action' => 'field',
       ),
-      42 => 
+      // ----- 播放器管理 -----
+      42 =>
       array (
         'show' => 1,
         'name' => lang('menu/player'),
         'controller' => 'vodplayer',
         'action' => 'index',
       ),
-      4201 => 
+      4201 =>
       array (
         'show' => 0,
         'name' => '--播放器信息维护',
         'controller' => 'vodplayer',
         'action' => 'info',
       ),
-      4202 => 
+      4202 =>
       array (
         'show' => 0,
         'name' => '--播放器删除',
         'controller' => 'vodplayer',
         'action' => 'del',
       ),
-      4203 => 
+      4203 =>
       array (
         'show' => 0,
         'name' => '--播放器组状态',
         'controller' => 'vodplayer',
         'action' => 'field',
       ),
-      43 => 
+      // ----- 下载器管理 -----
+      43 =>
       array (
         'show' => 1,
         'name' => lang('menu/downer'),
         'controller' => 'voddowner',
         'action' => 'index',
       ),
-      4301 => 
+      4301 =>
       array (
         'show' => 0,
         'name' => '--下载器信息维护',
         'controller' => 'voddowner',
         'action' => 'info',
       ),
-      4302 => 
+      4302 =>
       array (
         'show' => 0,
         'name' => '--下载器删除',
         'controller' => 'voddowner',
         'action' => 'del',
       ),
-      4303 => 
+      4303 =>
       array (
         'show' => 0,
         'name' => '--下载器组状态',
         'controller' => 'voddowner',
         'action' => 'field',
       ),
-      44 => 
+
+      // ----- 视频数据管理 (核心功能) -----
+      44 =>
       array (
         'show' => 1,
         'name' => lang('menu/vod_data'),
         'controller' => 'vod',
         'action' => 'data',
       ),
-      4401 => 
+      4401 =>
       array (
         'show' => 0,
         'name' => '--视频信息维护',
         'controller' => 'vod',
         'action' => 'info',
       ),
-      4402 => 
+      4402 =>
       array (
         'show' => 0,
         'name' => '--视频删除',
         'controller' => 'vod',
         'action' => 'del',
       ),
-      4403 => 
+      4403 =>
       array (
         'show' => 0,
         'name' => '--视频状态',
         'controller' => 'vod',
         'action' => 'field',
       ),
-      45 => 
+      // ----- 添加视频入口 -----
+      45 =>
       array (
         'show' => 1,
         'name' => lang('menu/vod_add'),
         'controller' => 'vod',
         'action' => 'info',
       ),
-      46 => 
+
+      // ===== 快捷筛选菜单 (复用 vod/data 页面) =====
+      // 无地址视频: 筛选 vod_play_url = '' (播放地址为空的视频)
+      46 =>
       array (
         'show' => 1,
         'name' => lang('menu/vod_data_url_empty'),
         'controller' => 'vod',
         'action' => 'data',
-        'param' => 'url=1',
+        'param' => 'url=1',  // 筛选条件: vod_play_url = ''
       ),
-      47 => 
+      // 已锁定视频: 筛选 vod_lock = 1 (被锁定不可编辑的视频)
+      47 =>
       array (
         'show' => 1,
         'name' => lang('menu/vod_data_lock'),
         'controller' => 'vod',
         'action' => 'data',
-        'param' => 'lock=1',
+        'param' => 'lock=1',  // 筛选条件: vod_lock = 1
       ),
-      48 => 
+      // 未审核视频: 筛选 vod_status = 0 (待审核的视频)
+      48 =>
       array (
         'show' => 1,
         'name' => lang('menu/vod_data_audit'),
         'controller' => 'vod',
         'action' => 'data',
-        'param' => 'status=0',
+        'param' => 'status=0',  // 筛选条件: vod_status = 0
       ),
-      481 => 
+      // 需积分视频: 筛选播放积分或下载积分 > 0
+      481 =>
       array (
         'show' => 1,
         'name' => lang('menu/vod_data_points'),
         'controller' => 'vod',
         'action' => 'data',
-        'param' => 'points=1',
+        'param' => 'points=1',  // 筛选条件: vod_points_play|vod_points_down > 0
       ),
-      482 => 
+      // 有分集剧情: 筛选 vod_plot = 1 (有分集剧情的视频)
+      482 =>
       array (
         'show' => 1,
         'name' => lang('menu/vod_data_plot'),
         'controller' => 'vod',
         'action' => 'data',
-        'param' => 'plot=1',
+        'param' => 'plot=1',  // 筛选条件: vod_plot = 1
       ),
-      49 => 
+
+      // ----- 批量操作视频 -----
+      49 =>
       array (
         'show' => 1,
         'name' => lang('menu/vod_batch'),
         'controller' => 'vod',
         'action' => 'batch',
       ),
-      491 => 
+      // 重名视频数据: 筛选同名视频 (用于去重处理)
+      491 =>
       array (
         'show' => 1,
         'name' => lang('menu/vod_repeat'),
         'controller' => 'vod',
         'action' => 'data',
-        'param' => 'repeat=1',
+        'param' => 'repeat=1',  // 筛选条件: 同名视频 (通过缓存检测)
       ),
-      495 => 
+
+      // ----- 演员库 -----
+      495 =>
       array (
         'show' => 1,
         'name' => lang('menu/actor'),
@@ -803,35 +887,36 @@ return array (
         'action' => 'data',
         'param' => '',
       ),
-      4951 => 
+      4951 =>
       array (
         'show' => 0,
         'name' => '--演员信息维护',
         'controller' => 'actor',
         'action' => 'info',
       ),
-      4952 => 
+      4952 =>
       array (
         'show' => 0,
         'name' => '--演员删除',
         'controller' => 'actor',
         'action' => 'del',
       ),
-      4953 => 
+      4953 =>
       array (
         'show' => 0,
         'name' => '--演员状态',
         'controller' => 'actor',
         'action' => 'field',
       ),
-      4954 => 
+      4954 =>
       array (
         'show' => 0,
         'name' => '--添加演员',
         'controller' => 'actor',
         'action' => 'info',
       ),
-      496 => 
+      // ----- 角色库 -----
+      496 =>
       array (
         'show' => 1,
         'name' => lang('menu/role'),
@@ -839,21 +924,21 @@ return array (
         'action' => 'data',
         'param' => '',
       ),
-      4961 => 
+      4961 =>
       array (
         'show' => 0,
         'name' => '--角色信息维护',
         'controller' => 'role',
         'action' => 'info',
       ),
-      4962 => 
+      4962 =>
       array (
         'show' => 0,
         'name' => '--角色删除',
         'controller' => 'role',
         'action' => 'del',
       ),
-      4963 => 
+      4963 =>
       array (
         'show' => 0,
         'name' => '--角色状态',

@@ -180,14 +180,27 @@ class Vod extends Base
             }
         }
 
+        // ========== 无地址视频筛选 (菜单: 视频-无地址视频) ==========
+        // 访问方式: vod/data?url=1
+        // 筛选条件: vod_play_url 为空字符串
+        // 用途: 查找没有播放地址的视频，便于批量补充地址或删除无效数据
         if(!empty($param['url'])){
             if($param['url']==1){
+                // 播放地址为空的视频 (无地址视频)
                 $where['vod_play_url'] = '';
             }
         }
+
+        // ========== 付费视频筛选 ==========
+        // 筛选播放积分或下载积分大于0的视频
         if(!empty($param['points'])){
             $where['vod_points_play|vod_points_down'] = ['gt', 0];
         }
+
+        // ========== 图片状态筛选 ==========
+        // pic=1: 无图片 (封面图为空)
+        // pic=2: 外链图片 (以http开头)
+        // pic=3: 错误图片 (包含#err标记)
         if(!empty($param['pic'])){
             if($param['pic'] == '1'){
                 $where['vod_pic'] = ['eq',''];
@@ -199,14 +212,24 @@ class Vod extends Base
                 $where['vod_pic'] = ['like','%#err%'];
             }
         }
+
+        // ========== 更新日期筛选 ==========
+        // 按周几更新的连载剧筛选
         if(!empty($param['weekday'])){
             $where['vod_weekday'] = ['like','%'.$param['weekday'].'%'];
         }
+
+        // ========== 关键词搜索 ==========
+        // 搜索范围: 视频名称、演员、副标题
         if(!empty($param['wd'])){
             $param['wd'] = urldecode($param['wd']);
             $param['wd'] = mac_filter_xss($param['wd']);
             $where['vod_name|vod_actor|vod_sub'] = ['like','%'.$param['wd'].'%'];
         }
+
+        // ========== 播放器来源筛选 ==========
+        // player=no: 无播放来源
+        // player=xxx: 指定播放器编码
         if(!empty($param['player'])){
             if($param['player']=='no'){
                 $where['vod_play_from'] = [['eq', ''], ['eq', 'no'], 'or'];
@@ -215,6 +238,10 @@ class Vod extends Base
                 $where['vod_play_from'] = ['like', '%' . $param['player'] . '%'];
             }
         }
+
+        // ========== 下载器来源筛选 ==========
+        // downer=no: 无下载来源
+        // downer=xxx: 指定下载器编码
         if(!empty($param['downer'])){
             if($param['downer']=='no'){
                 $where['vod_down_from'] = [['eq', ''], ['eq', 'no'], 'or'];
