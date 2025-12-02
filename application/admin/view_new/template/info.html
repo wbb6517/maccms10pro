@@ -1,3 +1,42 @@
+<!--
+模板文件编辑页 (Template File Editor)
+============================================================
+
+【页面说明】
+提供模板文件的查看和编辑功能，支持新增文件。
+显示安全过滤规则提示，防止用户输入危险代码。
+
+【控制器方法】
+Template::info() - application/admin/controller/Template.php
+
+【访问路径】
+GET  admin.php/template/info?fpath=xxx&fname=xxx  显示文件内容
+POST admin.php/template/info                       保存文件内容
+
+【模板变量】
+$filter   - 危险字符串过滤规则 (正则表达式)
+$fpath    - 文件所在目录路径
+$fname    - 文件名 (编辑时只读，新增时可编辑)
+$fcontent - 文件内容
+
+【表单字段说明】
+┌──────────────────┬─────────────────────────────────────────┐
+│ 字段名            │ 说明                                     │
+├──────────────────┼─────────────────────────────────────────┤
+│ fpath            │ 文件路径 (只读)                          │
+│ fname            │ 文件名 (新增时可编辑)                     │
+│ fcontent         │ 文件内容 (textarea 大文本编辑区)          │
+└──────────────────┴─────────────────────────────────────────┘
+
+【安全机制】
+- 页面顶部显示禁止使用的危险字符串列表
+- 提交前由控制器进行内容过滤检测
+- 禁止包含 PHP 代码、eval、shell 等危险内容
+
+============================================================
+-->
+
+<!-- 引入公共头部 -->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container">
     <form class="layui-form layui-form-pane" method="post" action="">

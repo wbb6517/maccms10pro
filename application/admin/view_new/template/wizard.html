@@ -1,3 +1,61 @@
+<!--
+模板标签向导页 (Template Tag Wizard)
+============================================================
+
+【页面说明】
+提供可视化的模板标签生成工具，帮助用户快速生成 maccms 模板标签代码。
+用户可以选择标签类型和设置参数，系统自动生成对应的模板代码。
+
+【控制器方法】
+Template::wizard() - application/admin/controller/Template.php
+
+【访问路径】
+GET admin.php/template/wizard  标签向导页
+
+【支持的标签类型】
+┌──────────────────┬─────────────────────────────────────────┐
+│ 标签名            │ 说明                                     │
+├──────────────────┼─────────────────────────────────────────┤
+│ link             │ 友情链接标签                             │
+│ type             │ 分类标签                                 │
+│ topic            │ 专题标签                                 │
+│ art              │ 文章标签                                 │
+│ vod              │ 视频标签                                 │
+│ area             │ 地区筛选标签                             │
+│ lang             │ 语言筛选标签                             │
+│ year             │ 年份筛选标签                             │
+│ letter           │ 首字母筛选标签                           │
+│ tag              │ 自定义标签                               │
+│ gbook            │ 留言板标签                               │
+│ comment          │ 评论标签                                 │
+└──────────────────┴─────────────────────────────────────────┘
+
+【标签参数说明】
+- order   : 排序方式 (asc=正序, desc=倒序)
+- by      : 排序字段 (time/id/hits/level 等)
+- num     : 数据数量
+- paging  : 是否分页 (true/false)
+- ids     : 指定ID列表
+- type    : 指定分类ID
+- level   : 指定等级
+- start   : 年份起始 (year 标签专用)
+- end     : 年份结束 (year 标签专用)
+- mid     : 模型ID (type 标签专用，1=视频，2=文章)
+- tag     : 自定义标签列表 (tag 标签专用)
+
+【JS功能】
+- showex(type)    : 切换标签类型，显示对应的参数面板
+- labelcreate()   : 根据当前选择的参数生成标签代码
+
+【生成的标签格式】
+{maccms:vod order="desc" by="time" num="10"}
+    {$key}      序号
+    {$vo.xxx}   字段值
+{/maccms:vod}
+
+============================================================
+-->
+
 {include file="../../../application/admin/view_new/public/head" /}
 <style>
     .tagCategory .layui-btn + .layui-btn{
