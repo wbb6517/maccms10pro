@@ -1,3 +1,53 @@
+<!--
+会员组编辑页面 (Group Edit View)
+============================================================
+
+【页面说明】
+后台 "用户 → 会员组" 的添加/编辑页面
+用于创建新会员组或编辑现有会员组的权限配置
+
+【控制器方法】
+Group::info() - application/admin/controller/Group.php
+
+【访问路径】
+GET  admin.php/group/info         → 添加会员组
+GET  admin.php/group/info?id=3    → 编辑会员组
+POST admin.php/group/info         → 保存数据
+
+【模板变量】
+$info      - 会员组信息 (编辑时有数据)
+$type_tree - 分类树 (用于权限配置)
+
+【表单字段说明】
+┌───────────────────┬─────────────────────────────────────────┐
+│ 字段名             │ 说明                                     │
+├───────────────────┼─────────────────────────────────────────┤
+│ group_id          │ 会员组ID (隐藏字段)                       │
+│ group_name        │ 会员组名称 (必填)                         │
+│ group_points_day  │ 包天积分 (仅ID>2显示)                     │
+│ group_points_week │ 包周积分 (仅ID>2显示)                     │
+│ group_points_month│ 包月积分 (仅ID>2显示)                     │
+│ group_points_year │ 包年积分 (仅ID>2显示)                     │
+│ group_status      │ 状态 (仅ID>2显示)                         │
+│ group_type[]      │ 可访问分类 (多选)                         │
+│ group_popedom     │ 权限配置 (JSON格式)                       │
+└───────────────────┴─────────────────────────────────────────┘
+
+【权限配置说明】
+group_popedom[分类ID][权限类型] 格式:
+- [1] 列表权限: 可查看该分类列表
+- [2] 详情权限: 可查看内容详情
+- [3] 播放权限: 可播放视频 (仅视频分类)
+- [4] 下载权限: 可下载资源 (仅视频分类)
+- [5] 试看权限: 允许试看 (仅视频分类)
+
+【JS功能】
+- 表单验证: group_name 不能为空
+- 全选: formCheckAll 选中所有权限
+- 反选: formCheckOther 反选所有权限
+
+============================================================
+-->
 {include file="../../../application/admin/view/public/head" /}
 <div class="page-container p10">
     <form class="layui-form layui-form-pane" method="post" action="">
