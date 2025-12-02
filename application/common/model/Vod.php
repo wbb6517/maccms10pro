@@ -191,19 +191,26 @@ class Vod extends Base {
      */
     public function listRepeatData($where,$order,$page=1,$limit=20,$start=0,$field='*',$addition=1)
     {
+        // 参数初始化
         $page = $page > 0 ? (int)$page : 1;
         $limit = $limit ? (int)$limit : 20;
         $start = $start ? (int)$start : 0;
         if(!is_array($where)){
             $where = json_decode($where,true);
         }
+        // 计算分页偏移: (页码-1)*每页条数 + 起始偏移
         $limit_str = ($limit * ($page-1) + $start) .",".$limit;
 
+        // ========== 统计重复视频总数 ==========
+        // JOIN mac_vod_repeat 表，通过 vod_name = name1 关联
+        // mac_vod_repeat 表存储了所有重名的视频名称
         $total = $this
             ->join('vod_repeat t','t.name1 = vod_name')
             ->where($where)
             ->count();
 
+        // ========== 获取重复视频列表 ==========
+        // 只返回在 mac_vod_repeat 表中有记录的视频
         $list = Db::name('Vod')
             ->join('vod_repeat t','t.name1 = vod_name')
             ->field($field)
@@ -212,6 +219,7 @@ class Vod extends Base {
             ->limit($limit_str)
             ->select();
 
+        // 附加关联信息 (分类、用户组)
         //分类
         $type_list = model('Type')->getCache('type_list');
         //用户组

@@ -277,21 +277,30 @@ class Vod extends Base
             $order = $param['order'] .' desc';
         }
 
+        // ========== 重名视频数据处理 (菜单: 视频-重名视频数据) ==========
+        // 访问方式: vod/data?repeat=1
+        // 功能: 查找数据库中 vod_name 相同的视频，用于去重管理
+        // 实现原理: 使用 mac_vod_repeat 缓存表存储重名记录，避免每次查询都进行分组统计
         if(!empty($param['repeat'])){
+            // 手动刷新缓存 (点击"更新重复缓存"按钮)
             if(!empty($param['cache'])){
                 model('Vod')->createRepeatCache();
                 return $this->success(lang('update_ok'));
             }
 
+            // 首页加载时检查缓存是否需要重建
             if($param['page'] ==1){
                 //使用缓存查看是否创建过缓存表
                 $cacheResult = Cache::get('vod_repeat_table_created_time',0);
                 //缓存时间超过7天和没有创建过缓存都会重建缓存
+                // 604800秒 = 7天
                 if( $cacheResult == 0 || time() - $cacheResult > 604800){
                     model('Vod')->createRepeatCache();
                 }
             }
+            // 重名数据按名称排序，方便对比
             $order='vod_name asc';
+            // 调用专用的重复数据列表方法 (JOIN mac_vod_repeat 表)
             $res = model('Vod')->listRepeatData($where,$order,$param['page'],$param['limit']);
         }
         else{
@@ -827,6 +836,7 @@ class Vod extends Base
         $param = input();
         $ids = $param['ids'];
 
+        // ========== 模式1: 根据ID批量删除 ==========
         if(!empty($ids)){
             $where=[];
             $where['vod_id'] = ['in',$ids];
@@ -834,36 +844,48 @@ class Vod extends Base
             if($res['code']>1){
                 return $this->error($res['msg']);
             }
+            // 删除后清除重复缓存，确保重名列表更新
             Cache::rm('vod_repeat_table_created_time');
             return $this->success($res['msg']);
         }
+        // ========== 模式2: 删除重名视频数据 (菜单: 视频-重名视频数据) ==========
+        // 通过 SQL 自连接查询，找出重名视频并删除
+        // retain 参数决定保留哪个ID: max=保留最大ID(最新), min=保留最小ID(最早)
         elseif(!empty($param['repeat'])){
             if($param['retain']=='max') {
-                // 保留最大ID - 先用子查询找出要保留的ID
+                // ===== 保留最大ID (删除较旧的重复数据) =====
+                // SQL逻辑: 找出所有 vod_id < 同名视频最大ID 的记录并删除
+                // 例: "流浪地球" 有 ID 100, 200, 300
+                //     保留 ID=300, 删除 ID=100, 200
                 $sql = 'DELETE FROM '.config('database.prefix').'vod WHERE vod_id IN (
                 SELECT * FROM (
                     SELECT v1.vod_id
                     FROM '.config('database.prefix').'vod v1
-                    INNER JOIN '.config('database.prefix').'vod v2 
+                    INNER JOIN '.config('database.prefix').'vod v2
                     ON v1.vod_name = v2.vod_name AND v1.vod_id < v2.vod_id
                 ) tmp
             )';
             } else {
-                // 保留最小ID - 先用子查询找出要保留的ID
+                // ===== 保留最小ID (删除较新的重复数据) =====
+                // SQL逻辑: 找出所有 vod_id > 同名视频最小ID 的记录并删除
+                // 例: "流浪地球" 有 ID 100, 200, 300
+                //     保留 ID=100, 删除 ID=200, 300
                 $sql = 'DELETE FROM '.config('database.prefix').'vod WHERE vod_id IN (
                 SELECT * FROM (
                     SELECT v1.vod_id
                     FROM '.config('database.prefix').'vod v1
-                    INNER JOIN '.config('database.prefix').'vod v2 
+                    INNER JOIN '.config('database.prefix').'vod v2
                     ON v1.vod_name = v2.vod_name AND v1.vod_id > v2.vod_id
                 ) tmp
             )';
             }
 
+            // 执行原生SQL删除
             $res = model('Vod')->execute($sql);
             if($res===false){
                 return $this->success(lang('del_err'));
             }
+            // 删除后清除重复缓存，触发下次访问时重建缓存
             Cache::rm('vod_repeat_table_created_time');
             return $this->success(lang('del_ok'));
         }
