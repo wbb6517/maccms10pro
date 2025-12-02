@@ -1,3 +1,44 @@
+<!--
+会员编辑页面 (User Edit View)
+============================================================
+
+【页面说明】
+后台 "用户 → 会员" 的添加/编辑页面
+用于创建新会员或编辑现有会员的信息
+
+【控制器方法】
+User::info() - application/admin/controller/User.php
+
+【访问路径】
+GET  admin.php/user/info         → 添加会员
+GET  admin.php/user/info?id=1    → 编辑会员
+POST admin.php/user/info         → 保存数据
+
+【模板变量】
+$info          - 会员信息（编辑时有数据）
+$group_list    - 会员组列表
+$has_vip_group - 是否选择了VIP组（显示有效期字段）
+
+【表单字段说明】
+┌────────────────────┬─────────────────────────────────────────┐
+│ 字段名              │ 说明                                     │
+├────────────────────┼─────────────────────────────────────────┤
+│ user_id            │ 会员ID（隐藏字段）                        │
+│ user_name          │ 用户名（登录账号）                        │
+│ user_pwd           │ 密码（编辑时为空则不修改）                 │
+│ user_status        │ 状态（0=禁用, 1=启用）                    │
+│ group_id[]         │ 会员组（多选checkbox）                    │
+│ user_points        │ 积分余额                                 │
+│ user_start_time    │ VIP开始时间（选择VIP组时显示）             │
+│ user_end_time      │ VIP结束时间（选择VIP组时显示）             │
+└────────────────────┴─────────────────────────────────────────┘
+
+【JS功能】
+- 会员组多选：选择ID>2的VIP组时显示有效期字段
+- 日期选择器：laydate组件选择开始/结束时间
+
+============================================================
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
     <div class="showpic" style="display:none;"><img class="showpic_img" width="120" height="160" referrerPolicy="no-referrer"></div>

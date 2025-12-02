@@ -1,4 +1,50 @@
 <?php
+/**
+ * 会员模型 (User Model)
+ * ============================================================
+ *
+ * 【文件说明】
+ * 会员数据模型，负责前台会员的全部业务逻辑
+ * 包括注册、登录、个人信息、会员升级、三级分销等
+ *
+ * 【数据表】
+ * mac_user - 会员数据表
+ *
+ * 【方法分类】
+ * ┌────────────────────┬──────────────────────────────────────────┐
+ * │ 分类                │ 方法列表                                  │
+ * ├────────────────────┼──────────────────────────────────────────┤
+ * │ 基础CRUD            │ countData, listData, infoData, saveData  │
+ * │                    │ delData, fieldData                        │
+ * ├────────────────────┼──────────────────────────────────────────┤
+ * │ 用户认证            │ register, login, logout, checkLogin      │
+ * │                    │ findpass, findpass_reset                  │
+ * ├────────────────────┼──────────────────────────────────────────┤
+ * │ 个人中心            │ info, regcheck, popedom, upgrade         │
+ * ├────────────────────┼──────────────────────────────────────────┤
+ * │ 绑定/验证           │ bind, unbind, bindmsg, check_msg         │
+ * │                    │ send_msg, findpass_msg, reg_msg           │
+ * ├────────────────────┼──────────────────────────────────────────┤
+ * │ 推广分销            │ visit, reward, expire                    │
+ * └────────────────────┴──────────────────────────────────────────┘
+ *
+ * 【会员组说明】
+ * - ID=1: 游客（未登录用户）
+ * - ID=2: 默认会员（注册后的默认分组）
+ * - ID>=3: VIP会员组（有有效期限制）
+ *
+ * 【三级分销】
+ * - user_pid: 一级推荐人
+ * - user_pid_2: 二级推荐人
+ * - user_pid_3: 三级推荐人
+ *
+ * 【相关文件】
+ * - application/admin/controller/User.php : 后台控制器
+ * - application/index/controller/User.php : 前台控制器
+ * - application/common/validate/User.php : 验证器
+ *
+ * ============================================================
+ */
 namespace app\common\model;
 
 use think\Db;
@@ -10,24 +56,47 @@ class User extends Base
     // 设置数据表（不含前缀）
     protected $name = 'user';
 
-    // 定义时间戳字段名
+    // 定义时间戳字段名（本表不使用自动时间戳）
     protected $createTime = '';
     protected $updateTime = '';
 
-    // 自动完成
+    // 自动完成配置（本表未使用）
     protected $auto = [];
     protected $insert = [];
     protected $update = [];
 
+    /** @var int 游客会员组ID */
     public $_guest_group = 1;
+
+    /** @var int 默认会员组ID（注册后的默认分组） */
     public $_def_group = 2;
 
+    /**
+     * ============================================================
+     * 统计会员数量
+     * ============================================================
+     *
+     * @param array $where 查询条件
+     * @return int 会员数量
+     */
     public function countData($where)
     {
         $total = $this->where($where)->count();
         return $total;
     }
 
+    /**
+     * ============================================================
+     * 获取会员列表
+     * ============================================================
+     *
+     * @param array $where 查询条件
+     * @param string $order 排序规则
+     * @param int $page 当前页码
+     * @param int $limit 每页条数
+     * @param int $start 起始位置
+     * @return array 返回结果 ['code'=>1, 'msg'=>'', 'list'=>列表, ...]
+     */
     public function listData($where, $order, $page = 1, $limit = 20, $start = 0)
     {
         $page = $page > 0 ? (int)$page : 1;
@@ -38,6 +107,19 @@ class User extends Base
         return ['code' => 1, 'msg' => lang('data_list'), 'page' => $page, 'pagecount' => ceil($total / $limit), 'limit' => $limit, 'total' => $total, 'list' => $list];
     }
 
+    /**
+     * ============================================================
+     * 获取单个会员详情
+     * ============================================================
+     *
+     * 【功能说明】
+     * 根据条件获取单个会员的详细信息
+     * 自动关联会员组信息，清空密码字段
+     *
+     * @param array $where 查询条件
+     * @param string $field 查询字段，默认全部
+     * @return array 返回结果 ['code'=>1, 'msg'=>'', 'info'=>会员信息]
+     */
     public function infoData($where, $field='*')
     {
         if (empty($where) || !is_array($where)) {
@@ -65,6 +147,24 @@ class User extends Base
         return ['code' => 1, 'msg' =>lang('obtain_ok'), 'info' => $info];
     }
 
+    /**
+     * ============================================================
+     * 保存会员数据 (新增/编辑)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 保存会员数据，支持新增和编辑操作
+     * 自动处理时间字段和密码加密
+     *
+     * 【处理流程】
+     * 1. 转换时间字符串为时间戳
+     * 2. 验证数据格式
+     * 3. 密码MD5加密（编辑时为空则不修改）
+     * 4. 根据是否有 user_id 判断新增或更新
+     *
+     * @param array $data 表单数据
+     * @return array 返回结果 ['code'=>1, 'msg'=>'']
+     */
     public function saveData($data)
     {
         $validate = \think\Loader::validate('User');
@@ -103,6 +203,14 @@ class User extends Base
         return ['code' => 1, 'msg' =>lang('save_ok')];
     }
 
+    /**
+     * ============================================================
+     * 删除会员
+     * ============================================================
+     *
+     * @param array $where 删除条件
+     * @return array 返回结果 ['code'=>1, 'msg'=>'']
+     */
     public function delData($where)
     {
         $res = $this->where($where)->delete();
@@ -112,6 +220,16 @@ class User extends Base
         return ['code' => 1, 'msg'=>lang('del_ok')];
     }
 
+    /**
+     * ============================================================
+     * 批量更新指定字段
+     * ============================================================
+     *
+     * @param array $where 更新条件
+     * @param string $col 字段名
+     * @param mixed $val 字段值
+     * @return array 返回结果 ['code'=>1, 'msg'=>'']
+     */
     public function fieldData($where, $col, $val)
     {
         if (!isset($col) || !isset($val)) {
@@ -126,6 +244,29 @@ class User extends Base
         return ['code' => 1, 'msg' =>lang('set_ok')];
     }
 
+    /**
+     * ============================================================
+     * 用户注册
+     * ============================================================
+     *
+     * 【功能说明】
+     * 处理前台用户注册，包括验证码校验、用户名检查、密码加密
+     * 支持手机/邮箱验证注册，支持邀请码分销
+     *
+     * 【处理流程】
+     * 1. 检查注册功能是否开启
+     * 2. 验证必填字段和验证码
+     * 3. 检查用户名是否重复、是否包含敏感词
+     * 4. 检查IP注册次数限制
+     * 5. 手机/邮箱验证（如启用）
+     * 6. 创建用户并处理邀请关系
+     *
+     * 【邀请分销】
+     * 如有邀请人，自动建立三级分销关系并奖励积分
+     *
+     * @param array $param 注册参数
+     * @return array 返回结果 ['code'=>1, 'msg'=>'']
+     */
     public function register($param)
     {
         $config = config('maccms');
@@ -276,6 +417,19 @@ class User extends Base
         return ['code' => 1, 'msg' => lang('model/user/reg_ok')];
     }
 
+    /**
+     * ============================================================
+     * 注册检查
+     * ============================================================
+     *
+     * 【功能说明】
+     * 检查用户名/邮箱是否已注册，或验证码是否正确
+     * 用于注册表单的实时校验
+     *
+     * @param string $t 检查类型（user_name, user_email, verify）
+     * @param string $str 检查值
+     * @return array 返回结果
+     */
     public function regcheck($t, $str)
     {
         $where = [];
@@ -299,6 +453,18 @@ class User extends Base
         return ['code' => 1, 'msg' => 'ok'];
     }
 
+    /**
+     * ============================================================
+     * 修改个人信息
+     * ============================================================
+     *
+     * 【功能说明】
+     * 用户修改个人信息，包括昵称、QQ、密保问题等
+     * 需验证原密码才能修改
+     *
+     * @param array $param 用户提交的数据
+     * @return array 返回结果
+     */
     public function info($param)
     {
         if (empty($param['user_pwd'])) {
@@ -328,6 +494,30 @@ class User extends Base
         return $this->saveData($data);
     }
 
+    /**
+     * ============================================================
+     * 用户登录
+     * ============================================================
+     *
+     * 【功能说明】
+     * 处理前台用户登录，支持用户名/邮箱登录和第三方登录
+     *
+     * 【处理流程】
+     * 1. 验证必填字段和验证码
+     * 2. 查询用户（支持用户名或邮箱）
+     * 3. 检查用户状态和VIP过期
+     * 4. 更新登录信息（时间、IP、次数）
+     * 5. 设置Cookie保持登录状态
+     *
+     * 【Cookie说明】
+     * 设置30天有效期的Cookie:
+     * - user_id, user_name, group_id, group_name
+     * - user_check (登录校验码)
+     * - user_portrait (用户头像)
+     *
+     * @param array $param 登录参数
+     * @return array 返回结果
+     */
     public function login($param)
     {
         $data = [];
@@ -409,6 +599,17 @@ class User extends Base
         return ['code' => 1, 'msg' => lang('model/user/login_ok')];
     }
 
+    /**
+     * ============================================================
+     * 处理过期会员
+     * ============================================================
+     *
+     * 【功能说明】
+     * 批量将已过期的VIP会员降级为默认会员组(ID=2)
+     * 在会员列表加载时自动调用
+     *
+     * @return array 返回结果
+     */
     public function expire()
     {
         $where=[];
@@ -424,6 +625,16 @@ class User extends Base
         return ['code' => 1, 'msg' => lang('model/user/update_expire_ok')];
     }
 
+    /**
+     * ============================================================
+     * 用户登出
+     * ============================================================
+     *
+     * 【功能说明】
+     * 清除用户登录Cookie，退出登录状态
+     *
+     * @return array 返回结果
+     */
     public function logout()
     {
         cookie('user_id', null);
@@ -435,6 +646,23 @@ class User extends Base
         return ['code' => 1, 'msg' =>lang('model/user/logout_ok')];
     }
 
+    /**
+     * ============================================================
+     * 检查登录状态
+     * ============================================================
+     *
+     * 【功能说明】
+     * 验证用户登录Cookie是否有效
+     * 自动处理VIP过期降级
+     *
+     * 【验证流程】
+     * 1. 读取Cookie中的user_id, user_name, user_check
+     * 2. 查询数据库验证用户存在且启用
+     * 3. 验证登录校验码是否匹配
+     * 4. 检查VIP是否过期，过期则降级
+     *
+     * @return array 返回结果，成功时包含用户信息
+     */
     public function checkLogin()
     {
         $user_id = cookie('user_id');
@@ -515,11 +743,25 @@ class User extends Base
         return ['code' => 1, 'msg' => lang('model/user/haved_login'), 'info' => $info];
     }
 
+    /**
+     * 重置密码（预留方法，暂未实现）
+     */
     public function resetPwd()
     {
 
     }
 
+    /**
+     * ============================================================
+     * 通过密保问题找回密码
+     * ============================================================
+     *
+     * 【功能说明】
+     * 用户通过密保问题找回并重置密码
+     *
+     * @param array $param 找回密码参数
+     * @return array 返回结果
+     */
     public function findpass($param)
     {
         $data = [];
@@ -568,6 +810,23 @@ class User extends Base
 
     }
 
+    /**
+     * ============================================================
+     * 检查用户权限
+     * ============================================================
+     *
+     * 【功能说明】
+     * 检查用户对指定分类的指定权限
+     * 用于前台内容访问权限控制
+     *
+     * 【权限类型】
+     * 1=列表 2=详情 3=播放 4=下载 5=试看
+     *
+     * @param int $type_id 分类ID
+     * @param int $popedom 权限类型
+     * @param string $group_ids 会员组ID（逗号分隔）
+     * @return bool 是否有权限
+     */
     public function popedom($type_id, $popedom, $group_ids = 1)
     {
         $group_list = model('Group')->getCache();
@@ -586,6 +845,25 @@ class User extends Base
         return false;
     }
 
+    /**
+     * ============================================================
+     * 会员升级
+     * ============================================================
+     *
+     * 【功能说明】
+     * 用积分升级会员组，支持包天/包周/包月/包年
+     * 升级后触发三级分销奖励
+     *
+     * 【处理流程】
+     * 1. 验证会员组有效性
+     * 2. 检查积分是否足够
+     * 3. 计算新的有效期（可叠加）
+     * 4. 扣除积分，更新会员组和有效期
+     * 5. 记录积分日志，触发分销奖励
+     *
+     * @param array $param 升级参数（group_id, long）
+     * @return array 返回结果
+     */
     public function upgrade($param)
     {
         $group_id = intval($param['group_id']);
@@ -649,6 +927,21 @@ class User extends Base
         return ['code'=>1,'msg'=>lang('model/user/update_group_ok')];
     }
 
+    /**
+     * ============================================================
+     * 验证短信/邮件验证码
+     * ============================================================
+     *
+     * 【功能说明】
+     * 验证用户提交的验证码是否正确
+     * 支持邮箱和手机验证码
+     *
+     * 【验证码类型】
+     * 1=绑定 2=找回密码 3=注册
+     *
+     * @param array $param 验证参数（ac, to, code, type）
+     * @return array 返回结果
+     */
     public function check_msg($param)
     {
         $param['to'] = htmlspecialchars(urldecode(trim($param['to'])));
@@ -681,6 +974,21 @@ class User extends Base
         return  ['code'=>1,'msg'=>'ok'];
     }
 
+    /**
+     * ============================================================
+     * 发送短信/邮件验证码
+     * ============================================================
+     *
+     * 【功能说明】
+     * 发送邮箱或手机验证码
+     * 支持绑定、找回密码、注册三种场景
+     *
+     * 【防刷机制】
+     * 同一用户5分钟内不能重复发送同类型验证码
+     *
+     * @param array $param 发送参数（ac, to, type）
+     * @return array 返回结果
+     */
     public function send_msg($param)
     {
         $param['to'] = htmlspecialchars(urldecode(trim($param['to'])));
@@ -761,6 +1069,18 @@ class User extends Base
         }
     }
 
+    /**
+     * ============================================================
+     * 绑定邮箱/手机
+     * ============================================================
+     *
+     * 【功能说明】
+     * 用户绑定邮箱或手机号
+     * 需先验证验证码
+     *
+     * @param array $param 绑定参数（ac, to, code）
+     * @return array 返回结果
+     */
     public function bind($param)
     {
         $param['type'] = 1;
@@ -793,6 +1113,14 @@ class User extends Base
         return ['code'=>1,'msg'=>lang('model/user/update_bind_ok')];
     }
 
+    /**
+     * ============================================================
+     * 解绑邮箱/手机
+     * ============================================================
+     *
+     * @param array $param 解绑参数（ac）
+     * @return array 返回结果
+     */
     public function unbind($param)
     {
         if(!in_array($param['ac'],['email','phone']) ){
@@ -813,18 +1141,33 @@ class User extends Base
         return ['code'=>1,'msg'=>lang('model/user/update_unbind_ok')];
     }
 
+    /**
+     * 发送绑定验证码
+     * @param array $param 参数
+     * @return array 返回结果
+     */
     public function bindmsg($param)
     {
         $param['type'] = 1;
         return $this->send_msg($param);
     }
 
+    /**
+     * 发送找回密码验证码
+     * @param array $param 参数
+     * @return array 返回结果
+     */
     public function findpass_msg($param)
     {
         $param['type'] = 2;
         return $this->send_msg($param);
     }
 
+    /**
+     * 发送注册验证码
+     * @param array $param 参数
+     * @return array 返回结果
+     */
     public function reg_msg($param)
     {
         $param['type'] = 3;
@@ -832,6 +1175,17 @@ class User extends Base
     }
 
 
+    /**
+     * ============================================================
+     * 通过验证码重置密码
+     * ============================================================
+     *
+     * 【功能说明】
+     * 用户通过邮箱或手机验证码重置密码
+     *
+     * @param array $param 重置参数
+     * @return array 返回结果
+     */
     public function findpass_reset($param)
     {
         $to = htmlspecialchars(urldecode(trim($param['user_email'])));
@@ -895,6 +1249,18 @@ class User extends Base
         return ['code'=>1,'msg'=>lang('model/user/pass_reset_ok')];
     }
 
+    /**
+     * ============================================================
+     * 记录推广访问
+     * ============================================================
+     *
+     * 【功能说明】
+     * 记录推广链接访问，为推广者增加积分
+     * 同一IP每天访问次数有限制
+     *
+     * @param array $param 访问参数（uid）
+     * @return array 返回结果
+     */
     public function visit($param)
     {
         $param['uid'] = abs(intval($param['uid']));
@@ -941,6 +1307,23 @@ class User extends Base
         return ['code'=>1,'msg'=>lang('model/user/visit_ok')];
     }
 
+    /**
+     * ============================================================
+     * 三级分销奖励
+     * ============================================================
+     *
+     * 【功能说明】
+     * 用户消费积分时，为其上级分销商发放奖励
+     * 支持三级分销：一级/二级/三级推荐人各获得不同比例奖励
+     *
+     * 【积分日志类型】
+     * - plog_type=4: 一级分销奖励
+     * - plog_type=5: 二级分销奖励
+     * - plog_type=6: 三级分销奖励
+     *
+     * @param int $fee_points 消费积分数
+     * @return array 返回结果
+     */
     public function reward($fee_points=0)
     {
         //三级分销
