@@ -234,33 +234,61 @@ class Index extends Base
      * 【模板位置】
      * application/admin/view/index/index.html
      *
+     * 【菜单加载流程】
+     * 1. 从 auth.php 加载菜单配置数组
+     * 2. 遍历菜单，根据 show 字段过滤隐藏项
+     * 3. 生成菜单 URL (controller/action?param)
+     * 4. 权限验证，无权限的菜单项移除
+     * 5. 加载快捷菜单配置并添加到菜单中
+     * 6. 将处理后的菜单数据传递给视图渲染
+     *
      */
     public function index()
     {
+        // ============================================================
+        // 【步骤1】加载菜单配置
+        // ============================================================
+        // 从 application/admin/common/auth.php 加载菜单配置数组
+        // MAC_ADMIN_COMM = application/admin/common/
         $menus = @include MAC_ADMIN_COMM . 'auth.php';
         $version = config('version');
 
+        // ============================================================
+        // 【步骤2-4】遍历菜单，处理 URL 和权限
+        // ============================================================
+        // 遍历一级菜单 (首页、系统、基础、视频、模版等)
         foreach ($menus as $k1 => $v1) {
+            // 遍历二级菜单 (每个一级菜单下的子菜单)
             foreach ($v1['sub'] as $k2 => $v2) {
+                // 只处理 show=1 的菜单项 (隐藏菜单用于权限验证)
                 if ($v2['show'] == 1) {
+                    // 生成菜单 URL
+                    // 如果 action 包含 javascript，直接使用 (用于不可点击的标题)
                     if (strpos($v2['action'], 'javascript') !== false) {
                         $url = $v2['action'];
                     } else {
+                        // 正常菜单: 生成 admin/controller/action 格式的 URL
                         $url = url('admin/' . $v2['controller'] . '/' . $v2['action']);
                     }
+                    // 如果有额外参数 (如 lock=1, status=0)，追加到 URL
                     if (!empty($v2['param'])) {
                         $url .= '?' . $v2['param'];
                     }
+                    // 权限验证: 检查当前管理员是否有权限访问该菜单
                     if ($this->check_auth($v2['controller'], $v2['action'])) {
+                        // 有权限: 设置 URL
                         $menus[$k1]['sub'][$k2]['url'] = $url;
                     } else {
+                        // 无权限: 从菜单中移除
                         unset($menus[$k1]['sub'][$k2]);
                     }
                 } else {
+                    // show=0 的隐藏菜单，不在导航中显示
                     unset($menus[$k1]['sub'][$k2]);
                 }
             }
 
+            // 如果一级菜单下没有任何子菜单，移除该一级菜单
             if (empty($menus[$k1]['sub'])) {
                 unset($menus[$k1]);
             }
@@ -342,22 +370,38 @@ class Index extends Base
                 $menus[1]['sub'][14 + $k] = ['name' => $one[0], 'url' => $one[1], 'controller' => '', 'action' => ''];
             }
         }
+
+        // ============================================================
+        // 【步骤6】准备视图数据并渲染
+        // ============================================================
+
+        // 获取可用的语言包列表 (用于语言切换下拉框)
         $langs = glob('./application/lang/*.php');
         foreach ($langs as $k => &$v) {
             $v = str_replace(['./application/lang/','.php'],['',''],$v);
         }
+
+        // 获取系统配置
         $config = config('maccms');
-        $this->assign('config', $config);
-        $this->assign('langs', $langs);
-        $this->assign('version', $version);
-        $this->assign('menus', $menus);
+
+        // 分配模板变量
+        $this->assign('config', $config);   // 系统配置
+        $this->assign('langs', $langs);     // 语言列表
+        $this->assign('version', $version); // 版本信息
+        $this->assign('menus', $menus);     // 左侧导航菜单 (核心数据)
         $this->assign('title', lang('admin/index/title'));
+
+        // 获取客户端 IP 归属地 (显示在顶部状态栏)
         $ipQuery = new IpLocationQuery();
         $country_code = $ipQuery->queryProvince(mac_get_client_ip());
         if($country_code == ""){
             $country_code = "其它";
         }
         $this->assign('ip_location', $country_code);
+
+        // 渲染后台首页框架
+        // 视图文件: application/admin/view/index/index.html
+        // 视图中通过 {volist name="menus"} 循环输出左侧菜单
         return $this->fetch('admin@index/index');
     }
 

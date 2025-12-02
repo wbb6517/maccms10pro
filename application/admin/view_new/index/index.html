@@ -95,22 +95,64 @@
         </ul>
 
     </div>
+    <!-- ============================================================ -->
+    <!-- 【左侧导航菜单区域】 -->
+    <!-- ============================================================ -->
+    <!--
+    【数据来源】
+    菜单数据由 Index::index() 控制器方法提供
+    - 配置文件: application/admin/common/auth.php
+    - 处理逻辑: application/admin/controller/Index.php::index()
+
+    【数据结构】
+    $menus = [
+        1 => [
+            'name' => '首页',
+            'icon' => 'xe625',
+            'sub' => [
+                11 => ['show'=>1, 'name'=>'欢迎页', 'url'=>'...'],
+                ...
+            ]
+        ],
+        7 => [
+            'name' => '模版',
+            'sub' => [
+                71 => ['name'=>'模板管理', 'url'=>'template/index'],
+                72 => ['name'=>'广告位管理', 'url'=>'template/ads'],  // <-- 广告位管理
+                73 => ['name'=>'标签向导', 'url'=>'template/wizard'],
+            ]
+        ],
+        ...
+    ]
+
+    【渲染逻辑】
+    1. 外层 volist 循环一级菜单 ($menus)
+    2. 内层 volist 循环二级菜单 ($v['sub'])
+    3. 每个菜单项渲染为 <a> 链接，点击后在右侧 iframe 中打开
+    -->
     <div class="layui-side" id="switchNav">
         <div class="layui-side-scroll navBar" id="navBar">
+            <!-- 遍历一级菜单 (首页、系统、基础、视频、模版等) -->
             {volist name="menus" id="v" key="k"}
             <ul class="layui-nav layui-nav-tree">
                 <!-- layui-nav-itemed-->
                 <li class="layui-nav-item">
+                    <!-- 一级菜单标题 (带图标) -->
                     <a class="nav-row" href="javascript:;">
                         <img class="nav-icon" src="__STATIC__/images/nav/left_ic_{$k}_nor@2x.png" alt="" srcset="" />
                         {$v['name']}
                         <i class=" maccms-icon macCms-a-zu1679"></i>
                     </a>
 
+                    <!-- 二级菜单列表 -->
                     <dl class="layui-nav-child">
+                        <!-- 遍历当前一级菜单下的所有子菜单 -->
                         {volist name="v['sub']" id="vv" key="kk"}
                         <dd>
+                            <!-- 判断是否为有效链接 (排除分隔符 ###) -->
                             {if condition="($vv['url'] !=='###')"}
+                            <!-- 菜单链接: 点击后在右侧内容区加载对应页面 -->
+                            <!-- data-id 用于标记当前激活的菜单项 -->
                             <a class="admin-nav-item" data-id="{$key}{$kk}" href="{$vv['url']}">
                                 <i class="{$vv['icon']}"></i> {$vv['name']}
                             </a>

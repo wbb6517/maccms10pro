@@ -1,3 +1,58 @@
+<!--
+会员订单列表页面 (Order List View)
+============================================================
+
+【页面说明】
+后台 "用户 → 会员订单" 的列表管理页面
+显示所有会员充值订单，支持筛选和删除操作
+
+【控制器方法】
+Order::index() - application/admin/controller/Order.php
+
+【访问路径】
+GET admin.php/order/index
+GET admin.php/order/index?uid=1 (查看指定用户的订单)
+
+【模板变量】
+$list  - 订单列表数组
+  - order_id       : 订单ID
+  - order_code     : 订单号
+  - order_price    : 订单金额
+  - order_points   : 订单积分
+  - order_status   : 订单状态（0=未支付, 1=已支付）
+  - order_time     : 下单时间
+  - order_pay_type : 支付方式
+  - order_pay_time : 支付时间
+  - order_remarks  : 订单备注
+  - user_id        : 用户ID
+  - user_name      : 用户名（关联查询）
+$total - 总记录数
+$page  - 当前页码
+$limit - 每页条数
+$param - 请求参数
+
+【筛选功能】
+┌──────────────┬─────────────────────────────┐
+│ 筛选项        │ 说明                         │
+├──────────────┼─────────────────────────────┤
+│ status       │ 订单状态（未支付/已支付）     │
+│ wd           │ 订单号搜索                    │
+└──────────────┴─────────────────────────────┘
+
+【操作按钮】
+- 删除：删除选中的订单
+- 清空：清空所有订单
+
+【列表字段说明】
+- 订单号：系统生成的唯一订单号
+- 订单金额：用户支付的金额
+- 订单状态：使用 mac_get_order_status_text 函数转换显示
+- 下单时间：用户发起充值的时间
+- 支付类型：支付方式（支付宝/微信等）
+- 支付时间：实际完成支付的时间
+
+============================================================
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
 
