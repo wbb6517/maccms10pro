@@ -565,11 +565,17 @@ class Collect extends Base {
                 $v['vod_class'] = mac_format_text($v['vod_class'], true);
                 $v['vod_tag'] = mac_format_text($v['vod_tag'], true);
 
+                // ========== 分集剧情数据处理 (菜单: 视频-有分集剧情) ==========
+                // 采集的剧情数据格式: "第1集标题$$$第2集标题$$$第3集标题"
+                // vod_plot_name  : 剧情标题 ($$$ 分隔)
+                // vod_plot_detail: 剧情内容 ($$$ 分隔)
+                // vod_plot: 剧情标记 (0=无剧情, 1=有剧情)
                 $v['vod_plot_name'] = (string)$v['vod_plot_name'];
                 $v['vod_plot_detail'] = (string)$v['vod_plot_detail'];
 
+                // 如果有剧情标题，设置剧情标记为1，并清理首尾的分隔符
                 if(!empty($v['vod_plot_name'])){
-                    $v['vod_plot'] = 1;
+                    $v['vod_plot'] = 1;  // 标记该视频有分集剧情
                     $v['vod_plot_name'] = trim($v['vod_plot_name'],'$$$');
                 }
                 if(!empty($v['vod_plot_detail'])){
@@ -1034,10 +1040,13 @@ class Collect extends Base {
                         if (strpos(',' . $config['uprule'], 'v')!==false && (isset($v['vod_isend']) && $v['vod_isend'] !== '') && $v['vod_isend']!=$info['vod_isend']) {
                             $update['vod_isend'] = $v['vod_isend'];
                         }
+                        // ========== 采集更新剧情数据 (菜单: 视频-有分集剧情) ==========
+                        // uprule 包含 'w' 时更新剧情数据
+                        // 仅当采集数据有剧情且与现有数据不同时才更新
                         if (strpos(',' . $config['uprule'], 'w')!==false && !empty($v['vod_plot_name']) && $v['vod_plot_name']!=$info['vod_plot_name']) {
-                            $update['vod_plot'] = 1;
-                            $update['vod_plot_name'] = $v['vod_plot_name'];
-                            $update['vod_plot_detail'] = $v['vod_plot_detail'];
+                            $update['vod_plot'] = 1;  // 标记有剧情
+                            $update['vod_plot_name'] = $v['vod_plot_name'];    // 剧情标题
+                            $update['vod_plot_detail'] = $v['vod_plot_detail']; // 剧情内容
                         }
 
                         if(count($update)>0){

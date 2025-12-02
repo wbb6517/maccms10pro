@@ -207,8 +207,11 @@ class Vod extends Base
             }
         }
 
-        // ========== 付费视频筛选 ==========
-        // 筛选播放积分或下载积分大于0的视频
+        // ========== 需积分视频筛选 (菜单: 视频-需积分视频) ==========
+        // 访问方式: vod/data?points=1
+        // 筛选条件: vod_points_play > 0 或 vod_points_down > 0
+        // 用途: 查看设置了播放积分或下载积分的视频
+        // 积分扣除: 用户播放/下载时扣除对应积分，积分不足则无法观看/下载
         if(!empty($param['points'])){
             $where['vod_points_play|vod_points_down'] = ['gt', 0];
         }
@@ -708,8 +711,14 @@ class Vod extends Base
      */
     public function iplot()
     {
+        // ========== POST请求: 保存剧情数据 ==========
         if (Request()->isPost()) {
             $param = input('post.');
+            // 调用模型的 savePlot() 方法保存剧情
+            // 表单数据格式:
+            // - vod_plot_name[]   : 剧情标题数组
+            // - vod_plot_detail[] : 剧情内容数组 (支持富文本HTML)
+            // 存储时转换为 $$$ 分隔的字符串
             $res = model('Vod')->savePlot($param);
             if($res['code']>1){
                 return $this->error($res['msg']);
@@ -717,14 +726,20 @@ class Vod extends Base
             return $this->success($res['msg']);
         }
 
+        // ========== GET请求: 显示剧情编辑表单 ==========
         $id = input('id');
         $where=[];
         $where['vod_id'] = $id;
+        // 获取视频详情，包含已解析的剧情列表
         $res = model('Vod')->infoData($where);
 
-
+        // 分配模板变量
+        // info: 视频基本信息 (vod_id, vod_name, vod_en, type_id)
         $info = $res['info'];
         $this->assign('info',$info);
+        // vod_plot_list: 已解析的剧情数组
+        // 结构: [ 1 => ['name'=>'第1集标题', 'detail'=>'第1集内容'], ... ]
+        // 由 mac_plot_list() 函数解析 vod_plot_name 和 vod_plot_detail 生成
         $this->assign('vod_plot_list',$info['vod_plot_list']);
 
 

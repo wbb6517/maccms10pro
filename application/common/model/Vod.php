@@ -792,20 +792,28 @@ class Vod extends Base {
                 return ['code' => 1002, 'msg' => lang('obtain_err')];
             }
             $info = $info->toArray();
+            // ========== 初始化扩展数据数组 ==========
             $info['vod_play_list']=[];
             $info['vod_down_list']=[];
             $info['vod_plot_list']=[];
             $info['vod_pic_screenshot_list']=[];
 
+            // 解析播放列表 ($$$ 分隔的字符串 → 数组)
             if (!empty($info['vod_play_from'])) {
                 $info['vod_play_list'] = mac_play_list($info['vod_play_from'], $info['vod_play_url'], $info['vod_play_server'], $info['vod_play_note'], 'play');
             }
+            // 解析下载列表
             if (!empty($info['vod_down_from'])) {
                 $info['vod_down_list'] = mac_play_list($info['vod_down_from'], $info['vod_down_url'], $info['vod_down_server'], $info['vod_down_note'], 'down');
             }
+            // ========== 解析分集剧情 (菜单: 视频-有分集剧情) ==========
+            // 将 $$$ 分隔的剧情字符串解析为数组
+            // 输入: vod_plot_name="第1集$$$第2集", vod_plot_detail="内容1$$$内容2"
+            // 输出: [ 1 => ['name'=>'第1集', 'detail'=>'内容1'], ... ]
             if (!empty($info['vod_plot_name'])) {
                 $info['vod_plot_list'] = mac_plot_list($info['vod_plot_name'], $info['vod_plot_detail']);
             }
+            // 解析截图列表 (# 分隔的URL)
             if(!empty($info['vod_pic_screenshot'])){
                 $info['vod_pic_screenshot_list'] = mac_screenshot_list($info['vod_pic_screenshot']);
             }
@@ -1060,10 +1068,14 @@ class Vod extends Base {
      */
     public function savePlot($data)
     {
+        // 数据验证
         $validate = \think\Loader::validate('Vod');
         if(!$validate->check($data)){
             return ['code'=>1001,'msg'=>lang('param_err').'：'.$validate->getError() ];
         }
+
+        // ========== 清除视频详情缓存 ==========
+        // 剧情变更后需清除缓存，确保前台显示最新数据
         $key = 'vod_detail_'.$data['vod_id'];
         Cache::rm($key);
         $key = 'vod_detail_'.$data['vod_en'];
@@ -1071,16 +1083,21 @@ class Vod extends Base {
         $key = 'vod_detail_'.$data['vod_id'].'_'.$data['vod_en'];
         Cache::rm($key);
 
+        // ========== 格式化剧情数据 (菜单: 视频-有分集剧情) ==========
+        // 表单提交的是数组，存储时转换为 $$$ 分隔的字符串
+        // 输入: ['第1集标题', '第2集标题'] → 输出: "第1集标题$$$第2集标题"
         if(!empty($data['vod_plot_name'])) {
-            $data['vod_plot'] = 1;
+            $data['vod_plot'] = 1;  // 标记有剧情
             $data['vod_plot_name'] = join('$$$', $data['vod_plot_name']);
             $data['vod_plot_detail'] = join('$$$', $data['vod_plot_detail']);
         }else{
+            // 无剧情时清空相关字段
             $data['vod_plot'] = 0;
             $data['vod_plot_name']='';
             $data['vod_plot_detail']='';
         }
 
+        // 执行更新 (剧情编辑只支持更新，不支持新增)
         if(!empty($data['vod_id'])){
             $where=[];
             $where['vod_id'] = ['eq',$data['vod_id']];

@@ -1345,6 +1345,32 @@ function mac_art_list($art_title,$art_note,$art_content)
     return $res_list;
 }
 
+/**
+ * 解析剧情数据为数组格式
+ *
+ * 【功能说明】
+ * 将数据库中 $$$ 分隔的剧情字符串解析为数组格式
+ * 用于后台剧情编辑页面和前台剧情展示
+ *
+ * 【数据库存储格式】
+ * vod_plot_name: "第1集标题$$$第2集标题$$$第3集标题"
+ * vod_plot_detail: "第1集内容$$$第2集内容$$$第3集内容"
+ *
+ * 【返回格式】
+ * [
+ *   1 => ['name' => '第1集标题', 'detail' => '第1集内容'],
+ *   2 => ['name' => '第2集标题', 'detail' => '第2集内容'],
+ * ]
+ *
+ * 【使用场景】
+ * - 后台剧情编辑页面 (admin/vod/iplot)
+ * - 前台视频详情页剧情展示
+ * - 模型 infoData() 方法中调用
+ *
+ * @param string $vod_plot_name   剧情标题 ($$$ 分隔)
+ * @param string $vod_plot_detail 剧情内容 ($$$ 分隔)
+ * @return array 剧情数组 (索引从1开始)
+ */
 function mac_plot_list($vod_plot_name,$vod_plot_detail)
 {
     $vod_plot_name_list = [];
