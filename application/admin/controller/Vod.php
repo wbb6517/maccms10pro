@@ -371,54 +371,74 @@ class Vod extends Base
     public function batch()
     {
         $param = input();
+        // ========== POST请求: 执行批量操作 ==========
         if (!empty($param)) {
 
+            // 输出样式，用于实时显示处理进度
             mac_echo('<style type="text/css">body{font-size:12px;color: #333333;line-height:21px;}span{font-weight:bold;color:#FF0000}</style>');
 
+            // ========== 参数验证: 必须选择至少一个操作类型 ==========
+            // ck_del     : 删除操作 (1=删除数据, 2=清空播放组, 3=清空下载组)
+            // ck_level   : 修改等级
+            // ck_status  : 修改状态
+            // ck_lock    : 修改锁定
+            // ck_hits    : 修改点击量
+            // ck_points  : 修改积分
+            // ck_copyright: 修改版权
             if(empty($param['ck_del']) && empty($param['ck_level']) && empty($param['ck_status']) && empty($param['ck_lock']) && empty($param['ck_hits'])
                 && empty($param['ck_points']) && empty($param['ck_copyright'])
             ){
                 return $this->error(lang('param_err'));
             }
 
-
+            // 清空播放组必须选择播放器
             if($param['ck_del']==2 && empty($param['player'])){
                 return $this->error(lang('admin/vod/del_play_must_select_play'));
             }
+            // 清空下载组必须选择下载器
             if($param['ck_del']==3 && empty($param['downer'])){
                 return $this->error(lang('admin/vod/del_down_must_select_down'));
             }
 
+            // ========== 构建筛选条件 (与列表页相同) ==========
             $where = [];
+            // 分类筛选
             if(!empty($param['type'])){
                 $where['type_id'] = ['eq',$param['type']];
             }
+            // 等级筛选
             if(!empty($param['level'])){
                 $where['vod_level'] = ['eq',$param['level']];
             }
+            // 状态筛选 (0=未审核, 1=已审核)
             if(in_array($param['status'],['0','1'])){
                 $where['vod_status'] = ['eq',$param['status']];
             }
+            // 版权筛选 (0=关闭, 1=开启)
             if(in_array($param['copyright'],['0','1'])){
                 $where['vod_copyright'] = ['eq',$param['copyright']];
             }
+            // 完结筛选 (0=连载中, 1=已完结)
             if(in_array($param['isend'],['0','1'])){
                 $where['vod_isend'] = ['eq',$param['isend']];
             }
-
+            // 锁定筛选
             if(!empty($param['lock'])){
                 $where['vod_lock'] = ['eq',$param['lock']];
             }
+            // 资源状态筛选
             if(!empty($param['state'])){
                 $where['vod_state'] = ['eq',$param['state']];
             }
-
+            // 地区筛选
             if(!empty($param['area'])){
                 $where['vod_area'] = ['eq',$param['area']];
             }
+            // 语言筛选
             if(!empty($param['lang'])){
                 $where['vod_lang'] = ['eq',$param['lang']];
             }
+            // 剧情筛选 (0=无剧情, 1=有剧情)
             if(in_array($param['plot'],['0','1'])){
                 $where['vod_plot'] = ['eq',$param['plot']];
             }
@@ -441,12 +461,13 @@ class Vod extends Base
                     }
                 }
             }
-
+            // 无地址视频筛选
             if(!empty($param['url'])){
                 if($param['url']==1){
                     $where['vod_play_url'] = '';
                 }
             }
+            // 图片状态筛选 (1=无图, 2=外链图, 3=错误图)
             if(!empty($param['pic'])){
                 if($param['pic'] == '1'){
                     $where['vod_pic'] = ['eq',''];
@@ -458,15 +479,16 @@ class Vod extends Base
                     $where['vod_pic'] = ['like','%#err%'];
                 }
             }
+            // 关键词搜索
             if(!empty($param['wd'])){
                 $param['wd'] = htmlspecialchars(urldecode($param['wd']));
                 $where['vod_name'] = ['like','%'.$param['wd'].'%'];
             }
-
+            // 更新日期筛选
             if(!empty($param['weekday'])){
                 $where['vod_weekday'] = ['like','%'.$param['weekday'].'%'];
             }
-
+            // 播放器筛选
             if(!empty($param['player'])){
                 if($param['player']=='no'){
                     $where['vod_play_from'] = [['eq', ''], ['eq', 'no'], 'or'];
@@ -475,6 +497,7 @@ class Vod extends Base
                     $where['vod_play_from'] = ['like', '%' . $param['player'] . '%'];
                 }
             }
+            // 下载器筛选
             if(!empty($param['downer'])){
                 if($param['downer']=='no'){
                     $where['vod_down_from'] = [['eq', ''], ['eq', 'no'], 'or'];
@@ -484,6 +507,8 @@ class Vod extends Base
                 }
             }
 
+            // ========== 操作类型1: 批量删除数据 ==========
+            // 直接调用模型删除方法，删除所有符合条件的视频
             if($param['ck_del'] == 1){
                 $res = model('Vod')->delData($where);
                 mac_echo(lang('multi_del_ok'));
@@ -492,97 +517,122 @@ class Vod extends Base
             }
 
 
+            // ========== 分页批量处理初始化 ==========
+            // 批量修改字段和清空播放/下载组采用分页处理，避免超时
             if(empty($param['page'])){
                 $param['page'] = 1;
             }
             if(empty($param['limit'])){
-                $param['limit'] = 100;
+                $param['limit'] = 100;  // 每次处理100条
             }
+            // 首次执行时统计总数和计算总页数
             if(empty($param['total'])) {
                 $param['total'] = model('Vod')->countData($where);
                 $param['page_count'] = ceil($param['total'] / $param['limit']);
             }
 
+            // 所有页处理完成，跳转回批量操作页面
             if($param['page'] > $param['page_count']) {
                 mac_echo(lang('multi_opt_ok'));
                 mac_jump( url('vod/batch') ,3);
                 exit;
             }
+            // 输出当前处理进度: 总数/每页/总页数/当前页
             mac_echo( "<font color=red>".lang('admin/batch_tip',[$param['total'],$param['limit'],$param['page_count'],$param['page']])."</font>");
 
+            // ========== 获取当前页数据 ==========
+            // 使用倒序分页，从最后一页开始处理
+            // 这样可以避免删除/修改数据后影响分页偏移
             $page = $param['page_count'] - $param['page'] + 1;
             $order='vod_id desc';
             $res = model('Vod')->listData($where,$order,$page,$param['limit']);
 
+            // ========== 遍历处理每条视频 ==========
             foreach($res['list'] as  $k=>$v){
                 $where2 = [];
                 $where2['vod_id'] = $v['vod_id'];
 
-                $update = [];
-                $des = $v['vod_id'].','.$v['vod_name'];
+                $update = [];  // 待更新的字段
+                $des = $v['vod_id'].','.$v['vod_name'];  // 处理日志描述
 
+                // ----- 修改等级 -----
                 if(!empty($param['ck_level']) && !empty($param['val_level'])){
                     $update['vod_level'] = $param['val_level'];
                     $des .= '&nbsp;'.lang('level').'：'.$param['val_level'].'；';
                 }
+                // ----- 修改状态 (审核) -----
                 if(!empty($param['ck_status']) && isset($param['val_status'])){
                     $update['vod_status'] = $param['val_status'];
                     $des .= '&nbsp;'.lang('status').'：'.($param['val_status'] ==1 ? '['.lang('reviewed').']':'['.lang('reviewed_not').']') .'；';
                 }
+                // ----- 修改版权 -----
                 if(!empty($param['ck_copyright']) && isset($param['val_copyright'])){
                     $update['vod_copyright'] = $param['val_copyright'];
                     $des .= '&nbsp;'.lang('copyright').'：'.($param['val_copyright'] ==1 ? '['.lang('open').']':'['.lang('close').'') .'；';
                 }
+                // ----- 修改锁定 -----
                 if(!empty($param['ck_lock']) && isset($param['val_lock'])){
                     $update['vod_lock'] = $param['val_lock'];
                     $des .= '&nbsp;'.lang('lock').'：'.($param['val_lock']==1 ? '['.lang('lock').']':'['.lang('unlock').']').'；';
                 }
+                // ----- 修改点击量 (随机范围) -----
                 if(!empty($param['ck_hits']) && $param['val_hits_min']!='' && $param['val_hits_max']!='' ){
                     $update['vod_hits'] = rand($param['val_hits_min'],$param['val_hits_max']);
                     $des .= '&nbsp;'.lang('hits').'：'.$update['vod_hits'].'；';
                 }
+                // ----- 修改播放积分 -----
                 if(!empty($param['ck_points']) && $param['val_points_play']!=''  ){
                     $update['vod_points_play'] = $param['val_points_play'];
                     $des .= '&nbsp;'.lang('points_play').'：'.$param['val_points_play'].'；';
                 }
+                // ----- 修改下载积分 -----
                 if(!empty($param['ck_points']) && $param['val_points_down']!='' ){
                     $update['vod_points_down'] = $param['val_points_down'];
                     $des .= '&nbsp;'.lang('points_down').'：'.$param['val_points_down'].'；';
                 }
 
+                // ========== 操作类型2/3: 清空播放组或下载组 ==========
+                // ck_del=2: 清空指定播放器的播放地址
+                // ck_del=3: 清空指定下载器的下载地址
                 if($param['ck_del'] == 2 || $param['ck_del'] ==3){
+                    // 根据操作类型确定字段前缀
                     if($param['ck_del']==2) {
-                        $pre = 'vod_play';
-                        $par = 'player';
+                        $pre = 'vod_play';   // 播放相关字段前缀
+                        $par = 'player';     // 参数名
                         $des .= '&nbsp;'.lang('play_group').'：';
                     }
                     elseif($param['ck_del']==3){
-                        $pre = 'vod_down';
-                        $par='downer';
+                        $pre = 'vod_down';   // 下载相关字段前缀
+                        $par='downer';       // 参数名
                         $des .= '&nbsp;'.lang('down_group').'：';
                     }
 
-
+                    // 情况1: 视频只有这一个播放/下载组，直接清空
                     if($param[$par] == $v[$pre.'_from']){
-                        $update[$pre.'_from'] = '';
-                        $update[$pre.'_server'] = '';
-                        $update[$pre.'_note'] = '';
-                        $update[$pre.'_url'] = '';
+                        $update[$pre.'_from'] = '';    // 来源
+                        $update[$pre.'_server'] = '';  // 服务器
+                        $update[$pre.'_note'] = '';    // 备注
+                        $update[$pre.'_url'] = '';     // 地址
                         $des .= lang('del_empty').'；';
                     }
+                    // 情况2: 视频有多个播放/下载组，删除指定的一组
                     else{
+                        // 将 $$$ 分隔的字符串拆分为数组
                         $vod_from_arr = explode('$$$',$v[$pre.'_from']);
                         $vod_server_arr = explode('$$$',$v[$pre.'_server']);
                         $vod_note_arr = explode('$$$',$v[$pre.'_note']);
                         $vod_url_arr = explode('$$$',$v[$pre.'_url']);
 
+                        // 查找要删除的播放器/下载器在数组中的位置
                         $key = array_search($param[$par],$vod_from_arr);
                         if($key!==false){
+                            // 删除对应索引的元素
                             unset($vod_from_arr[$key]);
                             unset($vod_server_arr[$key]);
                             unset($vod_note_arr[$key]);
                             unset($vod_url_arr[$key]);
 
+                            // 重新组合为 $$$ 分隔的字符串
                             $update[$pre.'_from'] = join('$$$',$vod_from_arr);
                             $update[$pre.'_server'] = join('$$$',$vod_server_arr);
                             $update[$pre.'_note'] = join('$$$',$vod_note_arr);
@@ -590,21 +640,25 @@ class Vod extends Base
                             $des .= lang('del'). '；';
                         }
                         else{
+                            // 该视频不包含指定的播放器/下载器，跳过
                             $des .= lang('jump_over').'；';
                         }
                     }
                 }
 
+                // 输出处理日志并执行数据库更新
                 mac_echo($des);
                 $res2 = model('Vod')->where($where2)->update($update);
 
             }
+            // 处理下一页
             $param['page']++;
             $url = url('vod/batch') .'?'. http_build_query($param);
-            mac_jump( $url ,3);
+            mac_jump( $url ,3);  // 3秒后自动跳转
             exit;
         }
 
+        // ========== GET请求: 显示批量操作表单 ==========
         //分类
         $type_tree = model('Type')->getCache('type_tree');
         $this->assign('type_tree',$type_tree);
