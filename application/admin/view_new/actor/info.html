@@ -1,4 +1,89 @@
+<!--
+演员添加/编辑页面 (Actor Add/Edit Page)
+============================================================
+
+【页面说明】
+后台 "视频 → 演员库" 的添加和编辑页面
+在 iframe 中以全屏模式打开
+
+【控制器方法】
+Actor::info() - application/admin/controller/Actor.php
+
+【访问路径】
+GET  admin.php/actor/info        → 添加新演员
+GET  admin.php/actor/info?id=X   → 编辑演员 (X为演员ID)
+POST admin.php/actor/info        → 保存演员数据
+
+【模板变量】
+$info      - 当前演员信息 (编辑时有数据，添加时为空)
+$type_tree - 分类树 (type_mid=8 为演员分类)
+$title     - 页面标题 "演员管理"
+
+【表单字段说明 - 基本信息Tab】
+┌──────────────────┬─────────────────────────────────────────┐
+│ 字段名            │ 说明                                     │
+├──────────────────┼─────────────────────────────────────────┤
+│ actor_id         │ 演员ID (隐藏字段，编辑时有值)            │
+│ type_id          │ 所属分类 (type_mid=8 的演员分类)         │
+│ actor_level      │ 推荐等级 (0-9, 9为幻灯)                  │
+│ actor_status     │ 审核状态 (0=未审核, 1=已审核)            │
+│ actor_sex        │ 性别 (男/女)                             │
+│ actor_lock       │ 锁定状态 (0=未锁定, 1=锁定)              │
+│ uptime           │ 是否更新时间 (checkbox)                  │
+│ actor_name       │ 演员名称 (必填)                          │
+│ actor_alias      │ 别名/艺名                                │
+│ actor_en         │ 英文名/拼音 (自动生成)                   │
+│ actor_letter     │ 首字母 (自动生成)                        │
+│ actor_color      │ 颜色值 (jscolor选择器)                   │
+│ actor_blood      │ 血型 (A/B/AB/O)                          │
+│ actor_area       │ 地区/国籍                                │
+│ actor_birtharea  │ 出生地                                   │
+│ actor_height     │ 身高 (cm)                                │
+│ actor_weight     │ 体重 (kg)                                │
+│ actor_birthday   │ 生日 (格式: 2000-01-01)                  │
+│ actor_starsign   │ 星座                                     │
+│ actor_school     │ 毕业院校                                 │
+│ actor_remarks    │ 备注                                     │
+│ actor_works      │ 代表作品 (逗号分隔)                      │
+│ actor_tag        │ TAG标签 (支持自动生成)                   │
+│ actor_class      │ 扩展分类 (点击快速填充)                  │
+│ actor_pic        │ 演员图片 (支持上传)                      │
+│ actor_blurb      │ 简介 (自动从内容截取)                    │
+│ actor_content    │ 详细介绍 (UEditor富文本编辑器)           │
+└──────────────────┴─────────────────────────────────────────┘
+
+【表单字段说明 - 其他信息Tab】
+- actor_up/down      : 顶/踩数
+- actor_hits         : 总点击量
+- actor_hits_month   : 月点击量
+- actor_hits_week    : 周点击量
+- actor_hits_day     : 日点击量
+- actor_score        : 评分
+- actor_score_all    : 总评分
+- actor_score_num    : 评分人数
+- actor_tpl          : 自定义模板
+- actor_jumpurl      : 跳转URL
+
+【扩展分类机制】
+选择演员分类后，AJAX请求 type/extend 接口
+返回该分类的扩展字段配置，在 actor_class_label 区域生成可点击标签
+点击标签自动追加到 actor_class 输入框
+
+【JS功能】
+- 表单验证: actor_name 不能为空
+- 分类联动: 选择分类后加载扩展分类标签
+- 图片上传: flag=actor 标识上传类型
+- 图片预览: 鼠标悬停显示图片
+- 随机生成: btn_rnd 一键生成随机点击量/评分数据
+- 富文本编辑器: UEditor 编辑演员介绍
+
+============================================================
+-->
+
+<!-- 引入公共头部 -->
 {include file="../../../application/admin/view_new/public/head" /}
+
+<!-- 颜色选择器JS -->
 <script type="text/javascript" src="__STATIC__/js/jquery.jscolor.js"></script>
 {include file="../../../application/admin/view_new/public/editor" flag="actor_editor"/}
 <div class="page-container p10">

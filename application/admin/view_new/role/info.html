@@ -1,7 +1,81 @@
+<!--
+角色添加/编辑页面 (Role Add/Edit Page)
+============================================================
+
+【页面说明】
+后台 "视频 → 角色库" 的添加和编辑页面
+在 iframe 中以全屏模式打开
+
+【控制器方法】
+Role::info() - application/admin/controller/Role.php
+
+【访问路径】
+GET  admin.php/role/info          → 添加新角色
+GET  admin.php/role/info?id=X     → 编辑角色 (X为角色ID)
+GET  admin.php/role/info?rid=X    → 为视频X添加角色
+POST admin.php/role/info          → 保存角色数据
+
+【模板变量】
+$info   - 当前角色信息 (编辑时有数据，添加时为空)
+$data   - 关联视频信息 (含 vod_name, type 等)
+$title  - 页面标题 "角色管理"
+
+【表单字段说明 - 基本信息Tab】
+┌──────────────────┬─────────────────────────────────────────┐
+│ 字段名            │ 说明                                     │
+├──────────────────┼─────────────────────────────────────────┤
+│ role_id          │ 角色ID (隐藏字段，编辑时有值)            │
+│ role_level       │ 推荐等级 (0-9, 9为幻灯)                  │
+│ role_status      │ 审核状态 (0=未审核, 1=已审核)            │
+│ role_lock        │ 锁定状态 (0=未锁定, 1=锁定)              │
+│ uptime           │ 是否更新时间 (checkbox)                  │
+│ vod_name         │ 关联视频名称 (只读)                      │
+│ role_rid         │ 关联视频ID (只读)                        │
+│ role_name        │ 角色名称 (必填)                          │
+│ role_actor       │ 扮演者/演员名                            │
+│ role_sort        │ 排序值                                   │
+│ role_en          │ 英文名/拼音 (自动生成)                   │
+│ role_letter      │ 首字母 (自动生成)                        │
+│ role_color       │ 颜色值 (jscolor选择器)                   │
+│ role_remarks     │ 角色备注                                 │
+│ role_pic         │ 角色图片 (支持上传)                      │
+│ role_content     │ 角色详细介绍 (UEditor富文本编辑器)       │
+└──────────────────┴─────────────────────────────────────────┘
+
+【表单字段说明 - 其他信息Tab】
+- role_up/down      : 顶/踩数
+- role_hits         : 总点击量
+- role_hits_month   : 月点击量
+- role_hits_week    : 周点击量
+- role_hits_day     : 日点击量
+- role_score        : 评分
+- role_score_all    : 总评分
+- role_score_num    : 评分人数
+- role_tpl          : 自定义模板
+- role_jumpurl      : 跳转URL
+
+【JS功能】
+- 表单验证: role_name 不能为空
+- 图片上传: flag=role 标识上传类型
+- 图片预览: 鼠标悬停显示图片
+- 随机生成: btn_rnd 一键生成随机点击量/评分数据
+- 富文本编辑器: UEditor 编辑角色介绍
+
+============================================================
+-->
+
+<!-- 引入公共头部 -->
 {include file="../../../application/admin/view_new/public/head" /}
+
+<!-- 颜色选择器JS -->
 <script type="text/javascript" src="__STATIC__/js/jquery.jscolor.js"></script>
+
+<!-- 富文本编辑器 -->
 {include file="../../../application/admin/view_new/public/editor" flag="role_editor"/}
+
+<!-- 页面主容器 -->
 <div class="page-container p10">
+    <!-- 图片预览浮层 -->
     <div class="showpic" style="display:none;"><img class="showpic_img" width="120" height="160" referrerPolicy="no-referrer"></div>
     
     <form class="layui-form layui-form-pane" method="post" action="">

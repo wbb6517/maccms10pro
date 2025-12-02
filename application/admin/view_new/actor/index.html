@@ -1,4 +1,64 @@
+<!--
+演员列表页面 (Actor List Page)
+============================================================
+
+【页面说明】
+后台 "视频 → 演员库" 的列表展示页面
+显示所有演员数据，支持多条件筛选和批量操作
+
+【控制器方法】
+Actor::data() - application/admin/controller/Actor.php
+
+【访问路径】
+GET admin.php/actor/data
+
+【模板变量】
+$list      - 演员列表数组 (含关联分类 type 字段)
+$total     - 总记录数
+$page      - 当前页码
+$limit     - 每页条数
+$param     - URL参数 (用于筛选和分页)
+$type_tree - 分类树 (type_mid=8 为演员分类)
+
+【筛选条件】
+- type   : 演员分类 (type_mid=8 的分类)
+- status : 审核状态 (0=已审核, 1=未审核)
+- level  : 推荐等级 (1-9, 其中9为幻灯推荐)
+- pic    : 图片状态 (1=无图, 2=外链图, 3=错误图)
+- order  : 排序字段 (时间/ID/点击量等)
+- wd     : 关键词搜索 (演员名称)
+
+【批量操作按钮】
+- 添加: 新增演员 (j-iframe 全屏打开)
+- 删除: 批量删除选中演员
+- 分类: 批量设置演员分类
+- 等级: 批量设置推荐等级
+- 点击: 批量设置点击量 (支持随机范围)
+- 状态: 批量设置审核状态
+- 图片同步: 同步远程图片到本地
+
+【列表字段】
+- actor_id     : 演员ID
+- type_name    : 所属分类名称
+- actor_name   : 演员名称 (可点击查看详情)
+- actor_area   : 地区
+- actor_sex    : 性别
+- actor_level  : 推荐等级 (可点击修改)
+- actor_height : 身高 (cm)
+- actor_weight : 体重 (kg)
+- actor_time   : 更新时间
+
+【状态标记】
+- actor_status=0 显示红色 "未审核" 标签
+- actor_lock=1 显示红色 "锁定" 标签
+
+============================================================
+-->
+
+<!-- 引入公共头部 -->
 {include file="../../../application/admin/view_new/public/head" /}
+
+<!-- 页面主容器 -->
 <div class="page-container p10">
 
     <div class="my-toolbar-box">

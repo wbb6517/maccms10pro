@@ -1,4 +1,61 @@
+<!--
+角色列表页面 (Role List Page)
+============================================================
+
+【页面说明】
+后台 "视频 → 角色库" 的列表展示页面
+显示所有角色数据，支持多条件筛选和批量操作
+
+【控制器方法】
+Role::data() - application/admin/controller/Role.php
+
+【访问路径】
+GET admin.php/role/data
+
+【模板变量】
+$list   - 角色列表数组 (含关联视频 data 字段)
+$total  - 总记录数
+$page   - 当前页码
+$limit  - 每页条数
+$param  - URL参数 (用于筛选和分页)
+
+【筛选条件】
+- status : 审核状态 (0=未审核, 1=已审核)
+- level  : 推荐等级 (1-9, 9为幻灯)
+- pic    : 图片状态 (1=无图, 2=外链, 3=错误图)
+- order  : 排序字段 (时间/ID/点击量等)
+- wd     : 关键词搜索 (角色名称)
+
+【批量操作按钮】
+- 添加: 新增角色 (仅在 param.select=1 且 param.rid 有值时显示)
+- 删除: 批量删除选中角色
+- 等级: 批量设置推荐等级
+- 点击: 批量设置点击量
+- 状态: 批量设置审核状态
+- 图片同步: 同步图片到本地
+
+【列表字段】
+- role_id       : 角色ID
+- data.vod_name : 关联视频名称 (可点击跳转)
+- role_name     : 角色名称 (可点击查看详情)
+- role_actor    : 扮演者/演员
+- role_sort     : 排序值
+- role_hits     : 点击量
+- role_level    : 推荐等级 (可点击修改)
+- role_time     : 更新时间
+
+【特殊模式】
+当 param.select=1 且 param.rid 有值时:
+表示从视频详情页跳转过来，显示"添加"按钮
+点击添加会带上 rid 参数关联到该视频
+
+============================================================
+-->
+
+<!-- 引入公共头部 -->
 {include file="../../../application/admin/view_new/public/head" /}
+
+<!-- 页面主容器 -->
 <div class="page-container p10">
 
     <div class="my-toolbar-box">
