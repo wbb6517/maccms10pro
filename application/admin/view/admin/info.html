@@ -1,3 +1,46 @@
+<!--
+管理员编辑页面 (Admin Edit View)
+============================================================
+
+【页面说明】
+后台 "用户 → 管理员" 的添加/编辑页面
+用于创建新管理员或编辑现有管理员的账号和权限
+
+【控制器方法】
+Admin::info() - application/admin/controller/Admin.php
+
+【访问路径】
+GET  admin.php/admin/info         → 添加管理员
+GET  admin.php/admin/info?id=1    → 编辑管理员
+POST admin.php/admin/info         → 保存数据
+
+【模板变量】
+$info  - 管理员信息 (编辑时有数据)
+$menus - 权限菜单列表 (来自 auth.php)
+
+【表单字段说明】
+┌───────────────────┬─────────────────────────────────────────┐
+│ 字段名             │ 说明                                     │
+├───────────────────┼─────────────────────────────────────────┤
+│ admin_id          │ 管理员ID (隐藏字段)                       │
+│ admin_name        │ 管理员账号 (必填)                         │
+│ admin_pwd         │ 密码 (新增必填,编辑为空则不修改)           │
+│ admin_status      │ 状态 (0=禁用, 1=启用)                     │
+│ admin_auth[]      │ 权限数组 (多选checkbox)                   │
+└───────────────────┴─────────────────────────────────────────┘
+
+【权限配置说明】
+权限菜单来自 application/admin/common/auth.php
+格式: controller/action (如 vod/index, admin/info)
+默认必选: index/welcome (首页)
+
+【JS功能】
+- 表单验证: admin_name 不能为空
+- 全选: formCheckAll 选中所有权限
+- 反选: formCheckOther 反选所有权限
+
+============================================================
+-->
 {include file="../../../application/admin/view/public/head" /}
 <div class="page-container p10">
     <form class="layui-form layui-form-pane" method="post" action="">
