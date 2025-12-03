@@ -1,3 +1,56 @@
+<!--
+用户访问日志列表页面 (Ulog List View)
+============================================================
+
+【页面说明】
+后台 "用户 → 访问日志" 的列表管理页面
+显示所有用户的浏览、收藏、播放、下载等访问记录
+
+【控制器方法】
+Ulog::index() - application/admin/controller/Ulog.php
+
+【访问路径】
+GET admin.php/ulog/index
+GET admin.php/ulog/index?uid=1 (查看指定用户的日志)
+
+【模板变量】
+$list  - 日志列表数组
+  - ulog_id     : 日志ID
+  - user_id     : 用户ID
+  - user_name   : 用户名（关联查询）
+  - ulog_mid    : 模型类型（1=视频, 2=文章, 3=专题, 8=演员）
+  - ulog_type   : 日志类型（1=浏览, 2=收藏, 3=想看, 4=播放, 5=下载）
+  - ulog_rid    : 关联内容ID
+  - ulog_sid    : 播放组索引
+  - ulog_nid    : 集数索引
+  - ulog_points : 消费积分
+  - ulog_time   : 记录时间
+  - data        : 关联内容信息（name, pic, link）
+$total - 总记录数
+$page  - 当前页码
+$limit - 每页条数
+$param - 请求参数
+
+【筛选功能】
+┌──────────────┬─────────────────────────────┐
+│ 筛选项        │ 说明                         │
+├──────────────┼─────────────────────────────┤
+│ mid          │ 模型类型（视频/文章/专题/演员）│
+│ type         │ 日志类型（浏览/收藏/想看/播放/下载）│
+│ wd           │ 搜索（暂不支持）              │
+└──────────────┴─────────────────────────────┘
+
+【操作按钮】
+- 删除：删除选中的日志
+- 清空：清空所有日志
+
+【显示转换函数】
+- mac_get_mid_text：模型ID转文字
+- mac_get_ulog_type_text：日志类型转文字
+- mac_day：时间戳转日期显示
+
+============================================================
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
 
