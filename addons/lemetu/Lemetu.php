@@ -144,7 +144,9 @@ class Lemetu extends Addons
         $isFirstInstall = !file_exists($lockFile);
 
         // 0. 首次安装时备份将被覆盖的文件
-        if ($isFirstInstall) {
+        // 或者备份目录不存在时也执行备份（防止之前版本没备份）
+        $backupPath = $addonPath . $this->backupDir;
+        if ($isFirstInstall || !is_dir($backupPath)) {
             $this->backupOriginalFiles();
         }
 
