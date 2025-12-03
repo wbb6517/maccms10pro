@@ -146,8 +146,15 @@ class Lemetu extends Addons
             @copy($dbSource, $dbDest);
         }
 
-        // 6. 导入数据库（仅首次安装）
-        if ($isFirstInstall) {
+        // 6. 导入数据库（首次安装或覆盖重装）
+        $needImportSql = $isFirstInstall || $this->isReinstallEnabled();
+
+        if ($needImportSql) {
+            // 如果是覆盖重装，先删除旧表
+            if (!$isFirstInstall && $this->isReinstallEnabled()) {
+                $this->dropPluginTables();
+            }
+
             $sqlSource = $installPath . 'static' . DS . 'mysql.sql';
             if (file_exists($sqlSource)) {
                 $sqlDest = $installPath . 'mysql.sql';
@@ -156,13 +163,11 @@ class Lemetu extends Addons
                 @unlink($sqlDest);
             }
 
-            // 创建锁文件
-            $lockSource = $installPath . 'static' . DS . 'install.lock';
-            if (file_exists($lockSource)) {
-                @copy($lockSource, $lockFile);
-            } else {
-                @file_put_contents($lockFile, date('Y-m-d H:i:s'));
-            }
+            // 创建/更新锁文件
+            @file_put_contents($lockFile, date('Y-m-d H:i:s'));
+
+            // 重置覆盖重装配置
+            $this->resetReinstallConfig();
         }
 
         // 7. 添加快捷菜单
@@ -210,7 +215,25 @@ class Lemetu extends Addons
     }
 
     /**
+     * 获取配置的表前缀
+     *
+     * @return string 表前缀，默认 mac_
+     */
+    protected function getTablePrefix()
+    {
+        $config = get_addon_config('lemetu');
+        return isset($config['table_prefix']) && $config['table_prefix']
+            ? $config['table_prefix']
+            : 'mac_';
+    }
+
+    /**
      * 导入SQL文件
+     *
+     * 【表前缀替换规则】
+     * 1. 优先使用配置的 table_prefix
+     * 2. 替换 SQL 中的默认前缀 mac_ 为配置的前缀
+     * 3. 同时支持 __PREFIX__ 占位符（使用系统数据库前缀）
      */
     protected function importSql($sqlFile)
     {
@@ -218,6 +241,9 @@ class Lemetu extends Addons
         if (!is_file($filePath)) {
             return false;
         }
+
+        // 获取配置的表前缀
+        $tablePrefix = $this->getTablePrefix();
 
         $lines = file($filePath);
         $templine = '';
@@ -228,7 +254,10 @@ class Lemetu extends Addons
             }
             $templine .= $line;
             if (substr(trim($line), -1, 1) == ';') {
+                // 替换 __PREFIX__ 占位符为系统数据库前缀
                 $templine = str_ireplace('__PREFIX__', config('database.prefix'), $templine);
+                // 替换默认的 mac_ 前缀为配置的前缀
+                $templine = str_replace('`mac_', '`' . $tablePrefix, $templine);
                 $templine = str_ireplace('INSERT INTO ', 'INSERT IGNORE INTO ', $templine);
                 try {
                     Db::execute($templine);
@@ -303,5 +332,77 @@ class Lemetu extends Addons
         }
 
         return true;
+    }
+
+    /**
+     * 检查是否启用覆盖重装
+     *
+     * @return bool
+     */
+    protected function isReinstallEnabled()
+    {
+        $config = get_addon_config('lemetu');
+        return isset($config['reinstall_tables']) && $config['reinstall_tables'] == '1';
+    }
+
+    /**
+     * 获取插件数据表列表
+     *
+     * @return array
+     */
+    protected function getPluginTables()
+    {
+        return [
+            'adtype',
+            'app_install_record',
+            'app_version',
+            'category',
+            'danmu',
+            'glog',
+            'gold_withdraw_apply',
+            'gonggao',
+            'groupchat',
+            'message',
+            'sign',
+            'tmpvod',
+            'tvdata',
+            'umeng',
+            'view30m',
+            'vlog',
+            'youxi',
+            'zhibo',
+        ];
+    }
+
+    /**
+     * 删除插件数据表
+     */
+    protected function dropPluginTables()
+    {
+        $tablePrefix = $this->getTablePrefix();
+        $tables = $this->getPluginTables();
+
+        foreach ($tables as $table) {
+            $tableName = $tablePrefix . $table;
+            try {
+                Db::execute("DROP TABLE IF EXISTS `{$tableName}`");
+            } catch (\Exception $e) {
+                // 忽略错误
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * 重置覆盖重装配置
+     */
+    protected function resetReinstallConfig()
+    {
+        $config = get_addon_config('lemetu');
+        if (isset($config['reinstall_tables'])) {
+            $config['reinstall_tables'] = '0';
+            set_addon_config('lemetu', $config);
+        }
     }
 }
