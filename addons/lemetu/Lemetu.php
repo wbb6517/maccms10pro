@@ -93,6 +93,12 @@ class Lemetu extends Addons
             }
         }
 
+        // 1.1 删除 view_new/app 目录（如果是新版CMS）
+        $viewNewAppDir = ROOT_PATH . 'application' . DS . 'admin' . DS . 'view_new' . DS . 'app' . DS;
+        if (is_dir($viewNewAppDir)) {
+            $this->removeDir($viewNewAppDir);
+        }
+
         // 2. 恢复被覆盖的原始文件
         $this->restoreOriginalFiles();
 
@@ -163,6 +169,16 @@ class Lemetu extends Addons
         $appDest = ROOT_PATH . 'application' . DS;
         if (is_dir($appSource)) {
             $this->copyDir($appSource, $appDest);
+        }
+
+        // 2.1 检测是否为新版CMS（有view_new目录），同步view/app到view_new/app
+        $viewNewDir = ROOT_PATH . 'application' . DS . 'admin' . DS . 'view_new' . DS;
+        if (is_dir($viewNewDir)) {
+            $viewAppSource = ROOT_PATH . 'application' . DS . 'admin' . DS . 'view' . DS . 'app' . DS;
+            $viewNewAppDest = $viewNewDir . 'app' . DS;
+            if (is_dir($viewAppSource)) {
+                $this->copyDir($viewAppSource, $viewNewAppDest);
+            }
         }
 
         // 3. 复制 extra 配置文件
