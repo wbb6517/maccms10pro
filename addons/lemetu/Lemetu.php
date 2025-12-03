@@ -96,21 +96,22 @@ class Lemetu extends Addons
         // 2. 恢复被覆盖的原始文件
         $this->restoreOriginalFiles();
 
-        // 3. 根据配置决定是否删除数据表
+        // 3. 根据配置决定是否删除数据表和锁文件
         if (!$this->isKeepDataEnabled()) {
+            // 不保留数据：删除数据表
             $this->dropPluginTables();
+
+            // 不保留数据：删除锁文件（下次启用时会重新导入SQL）
+            $lockFile = ADDON_PATH . 'lemetu' . DS . 'install.lock';
+            if (file_exists($lockFile)) {
+                @unlink($lockFile);
+            }
         }
 
         // 4. 删除备份目录
         $backupPath = ADDON_PATH . 'lemetu' . DS . $this->backupDir;
         if (is_dir($backupPath)) {
             $this->removeDir($backupPath);
-        }
-
-        // 5. 删除锁文件
-        $lockFile = ADDON_PATH . 'lemetu' . DS . 'install.lock';
-        if (file_exists($lockFile)) {
-            @unlink($lockFile);
         }
 
         return true;
