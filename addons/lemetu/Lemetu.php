@@ -39,6 +39,40 @@ class Lemetu extends Addons
     protected $installDir = 'install';
 
     /**
+     * 备份目录（相对于插件根目录）
+     */
+    protected $backupDir = 'backup';
+
+    /**
+     * 需要备份的文件列表（相对于ROOT_PATH）
+     * 这些文件会被插件修改，卸载时需要恢复
+     */
+    protected $backupFiles = [
+        'application/admin/view/extend/pay/epay.html',
+        'application/common/extend/pay/Epay.php',
+        'application/common/model/Card.php',
+        'application/common/model/Plog.php',
+        'application/common/model/Ulog.php',
+    ];
+
+    /**
+     * 插件新增的文件列表（相对于ROOT_PATH）
+     * 卸载时需要删除
+     */
+    protected $newFiles = [
+        'application/admin/view/extend/pay/qqepay.html',
+        'application/common/extend/pay/Qqepay.php',
+        'application/extra/app.php',
+        'lvdou_api.php',
+        'icciu_api.php',
+        'mogai_api.php',
+        'jiami.php',
+        'mkey.txt',
+        'update.php',
+        'application/data/update/database.php',
+    ];
+
+    /**
      * 安装插件
      */
     public function install()
@@ -51,18 +85,32 @@ class Lemetu extends Addons
      */
     public function uninstall()
     {
-        // 删除根目录下的 API 文件
-        $rootFiles = ['mkey.txt', 'jiami.php', 'update.php', 'lvdou_api.php', 'icciu_api.php', 'mogai_api.php'];
-        foreach ($rootFiles as $file) {
-            if (file_exists($file)) {
-                @unlink($file);
+        // 1. 删除插件新增的文件
+        foreach ($this->newFiles as $file) {
+            $filePath = ROOT_PATH . str_replace('/', DS, $file);
+            if (file_exists($filePath)) {
+                @unlink($filePath);
             }
         }
 
-        // 删除 database.php
-        $databaseFile = 'application/data/update/database.php';
-        if (file_exists($databaseFile)) {
-            @unlink($databaseFile);
+        // 2. 恢复被覆盖的原始文件
+        $this->restoreOriginalFiles();
+
+        // 3. 根据配置决定是否删除数据表
+        if (!$this->isKeepDataEnabled()) {
+            $this->dropPluginTables();
+        }
+
+        // 4. 删除备份目录
+        $backupPath = ADDON_PATH . 'lemetu' . DS . $this->backupDir;
+        if (is_dir($backupPath)) {
+            $this->removeDir($backupPath);
+        }
+
+        // 5. 删除锁文件
+        $lockFile = ADDON_PATH . 'lemetu' . DS . 'install.lock';
+        if (file_exists($lockFile)) {
+            @unlink($lockFile);
         }
 
         return true;
@@ -94,6 +142,11 @@ class Lemetu extends Addons
 
         // 检查是否已初始化
         $isFirstInstall = !file_exists($lockFile);
+
+        // 0. 首次安装时备份将被覆盖的文件
+        if ($isFirstInstall) {
+            $this->backupOriginalFiles();
+        }
 
         // 1. 复制 extend 目录
         $extendSource = $installPath . 'extend' . DS;
@@ -404,5 +457,97 @@ class Lemetu extends Addons
             $config['reinstall_tables'] = '0';
             set_addon_config('lemetu', $config);
         }
+    }
+
+    /**
+     * 检查是否保留数据表
+     *
+     * @return bool
+     */
+    protected function isKeepDataEnabled()
+    {
+        $config = get_addon_config('lemetu');
+        return isset($config['keep_data_on_uninstall']) && $config['keep_data_on_uninstall'] == '1';
+    }
+
+    /**
+     * 备份原始文件
+     * 在首次安装时调用，备份将被插件覆盖的文件
+     */
+    protected function backupOriginalFiles()
+    {
+        $backupPath = ADDON_PATH . 'lemetu' . DS . $this->backupDir . DS;
+
+        // 创建备份目录
+        if (!is_dir($backupPath)) {
+            @mkdir($backupPath, 0755, true);
+        }
+
+        foreach ($this->backupFiles as $file) {
+            $sourcePath = ROOT_PATH . str_replace('/', DS, $file);
+            if (file_exists($sourcePath)) {
+                // 创建备份文件的目录结构
+                $backupFile = $backupPath . str_replace('/', DS, $file);
+                $backupDir = dirname($backupFile);
+                if (!is_dir($backupDir)) {
+                    @mkdir($backupDir, 0755, true);
+                }
+                // 复制文件到备份目录
+                @copy($sourcePath, $backupFile);
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * 恢复原始文件
+     * 在卸载时调用，从备份目录恢复原始文件
+     */
+    protected function restoreOriginalFiles()
+    {
+        $backupPath = ADDON_PATH . 'lemetu' . DS . $this->backupDir . DS;
+
+        foreach ($this->backupFiles as $file) {
+            $backupFile = $backupPath . str_replace('/', DS, $file);
+            $targetPath = ROOT_PATH . str_replace('/', DS, $file);
+
+            if (file_exists($backupFile)) {
+                // 确保目标目录存在
+                $targetDir = dirname($targetPath);
+                if (!is_dir($targetDir)) {
+                    @mkdir($targetDir, 0755, true);
+                }
+                // 从备份恢复文件
+                @copy($backupFile, $targetPath);
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * 递归删除目录
+     */
+    protected function removeDir($dir)
+    {
+        if (!is_dir($dir)) {
+            return true;
+        }
+
+        $files = scandir($dir);
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+            $path = $dir . DS . $file;
+            if (is_dir($path)) {
+                $this->removeDir($path);
+            } else {
+                @unlink($path);
+            }
+        }
+
+        return @rmdir($dir);
     }
 }
