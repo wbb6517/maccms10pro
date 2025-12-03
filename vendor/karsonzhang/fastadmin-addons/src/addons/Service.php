@@ -242,47 +242,121 @@ class Service
     }
 
     /**
+     * ============================================================
      * 刷新插件缓存文件
+     * ============================================================
+     *
+     * 【功能说明】
+     * 在插件安装/卸载/启用/禁用后调用
+     * 重新生成插件相关的缓存文件
+     *
+     * 【刷新流程】
+     * ┌─────────────────────────────────────────────────────────────┐
+     * │ 1. 获取插件列表  →  调用 get_addon_list() 获取所有插件      │
+     * │ 2. 合并JS文件   →  合并所有启用插件的 bootstrap.js          │
+     * │ 3. 写入addons.js →  写入到 static/js/addons.js             │
+     * │ 4. 生成配置     →  调用 get_addon_autoload_config()        │
+     * │ 5. 写入配置文件  →  写入到 application/extra/addons.php    │
+     * └─────────────────────────────────────────────────────────────┘
+     *
+     * 【生成的文件】
+     * 1. static/js/addons.js
+     *    - 合并所有启用插件的 bootstrap.js 文件
+     *    - 用于前端 RequireJS 模块加载
+     *    - 格式：define([], function () { ... });
+     *
+     * 2. application/extra/addons.php
+     *    - 插件自动加载配置
+     *    - 包含路由规则和钩子配置
+     *
+     * 【注意事项】
+     * - 需要 static/js/ 目录存在且可写
+     * - 需要 application/extra/addons.php 文件可写
+     * - 如果目录/文件不存在会抛出异常
      *
      * @return  boolean
      * @throws  Exception
      */
     public static function refresh()
     {
-        //刷新addons.js
+        // ========== 第1步：获取所有插件列表 ==========
+        // get_addon_list() 扫描 addons/ 目录获取所有已安装插件
         $addons = get_addon_list();
+
+        // ========== 第2步：收集所有启用插件的 bootstrap.js ==========
+        // bootstrap.js 是插件的前端初始化脚本
+        // 只有启用状态(state=1)的插件才会被合并
         $bootstrapArr = [];
         foreach ($addons as $name => $addon) {
+            // 构建 bootstrap.js 文件路径
             $bootstrapFile = ADDON_PATH . $name . DS . 'bootstrap.js';
+
+            // 检查插件是否启用 且 bootstrap.js 文件存在
             if ($addon['state'] && is_file($bootstrapFile)) {
+                // 读取文件内容添加到数组
                 $bootstrapArr[] = file_get_contents($bootstrapFile);
             }
         }
-        $addonsFile = ROOT_PATH . str_replace("/", DS, "static/js/addons.js");
-        if ($handle = fopen($addonsFile, 'w')) {
-            $tpl = <<<EOD
+
+        // ========== 第3步：写入 addons.js 文件 ==========
+        // 目标文件：static/js/addons.js 和 static_new/js/addons.js（如果存在）
+        // 用于前端 RequireJS 模块加载
+        // 定义 AMD 模块模板
+        $tpl = <<<EOD
 define([], function () {
     {__JS__}
 });
 EOD;
-            fwrite($handle, str_replace("{__JS__}", implode("\n", $bootstrapArr), $tpl));
-            fclose($handle);
-        } else {
-            throw new Exception("addons.js文件没有写入权限");
+        $jsContent = str_replace("{__JS__}", implode("\n", $bootstrapArr), $tpl);
+
+        // 动态写入到所有存在的静态目录
+        $staticDirs = self::getStaticDirs();
+        $writeSuccess = false;
+
+        foreach ($staticDirs as $staticDir) {
+            $addonsFile = ROOT_PATH . $staticDir . DS . 'js' . DS . 'addons.js';
+            // 检查 js 目录是否存在
+            $jsDir = dirname($addonsFile);
+            if (!is_dir($jsDir)) {
+                continue; // js 目录不存在则跳过
+            }
+
+            if ($handle = fopen($addonsFile, 'w')) {
+                fwrite($handle, $jsContent);
+                fclose($handle);
+                $writeSuccess = true;
+            }
         }
 
+        // 如果没有任何目录可写，抛出异常
+        if (!$writeSuccess && !empty($staticDirs)) {
+            throw new Exception("addons.js文件没有写入权限，或者不存在！");
+        }
+
+        // ========== 第4步：生成插件自动加载配置 ==========
+        // 配置文件路径：application/extra/addons.php
         $file = APP_PATH . 'extra' . DS . 'addons.php';
 
+        // 获取插件自动加载配置
+        // 参数 true 表示清空手动配置的钩子，重新生成
+        // 返回数组包含：hooks(钩子)、route(路由)、autoload(自动加载开关)
         $config = get_addon_autoload_config(true);
+
+        // 如果开启了自动加载模式，则不需要写入配置文件
+        // 自动加载模式下，配置会被缓存
         if ($config['autoload']) {
             return;
         }
 
+        // ========== 第5步：写入配置文件 ==========
+        // 检查文件是否可写
         if (!is_really_writable($file)) {
             throw new Exception("addons.php文件没有写入权限");
         }
 
         if ($handle = fopen($file, 'w')) {
+            // 将配置数组导出为 PHP 代码
+            // 格式：<?php return [...];
             fwrite($handle, "<?php\n\n" . "return " . var_export($config, true) . ";");
             fclose($handle);
         } else {
@@ -371,11 +445,13 @@ EOD;
         // ========== 第6步：复制文件 ⭐ 关键步骤 ==========
         // 【复制资源文件】
         // 源目录：addons/{name}/assets/
-        // 目标目录：static/addons/{name}/
+        // 目标目录：static/addons/{name}/ 和 static_new/addons/{name}/（如果存在）
         $sourceAssetsDir = self::getSourceAssetsDir($name);
-        $destAssetsDir = self::getDestAssetsDir($name);
         if (is_dir($sourceAssetsDir)) {
-            copydirs($sourceAssetsDir, $destAssetsDir);
+            // 复制到所有存在的静态目录
+            foreach (self::getDestAssetsDirs($name, true) as $destAssetsDir) {
+                copydirs($sourceAssetsDir, $destAssetsDir);
+            }
         }
 
         // 【复制全局文件】
@@ -465,11 +541,12 @@ EOD;
         }
 
         // ========== 第3步：移除插件基础资源目录 ==========
-        // 删除 static/addons/{name}/ 目录
+        // 删除 static/addons/{name}/ 和 static_new/addons/{name}/（如果存在）
         // 这是安装时从 addons/{name}/assets/ 复制过来的
-        $destAssetsDir = self::getDestAssetsDir($name);
-        if (is_dir($destAssetsDir)) {
-            rmdirs($destAssetsDir);
+        foreach (self::getDestAssetsDirs($name) as $destAssetsDir) {
+            if (is_dir($destAssetsDir)) {
+                rmdirs($destAssetsDir);
+            }
         }
 
         // ========== 第4步：移除插件全局资源文件 ==========
@@ -668,10 +745,11 @@ EOD;
         }
 
         // ========== 第3步：移除插件基础资源目录 ==========
-        // 删除 static/addons/{name}/
-        $destAssetsDir = self::getDestAssetsDir($name);
-        if (is_dir($destAssetsDir)) {
-            rmdirs($destAssetsDir);
+        // 删除 static/addons/{name}/ 和 static_new/addons/{name}/（如果存在）
+        foreach (self::getDestAssetsDirs($name) as $destAssetsDir) {
+            if (is_dir($destAssetsDir)) {
+                rmdirs($destAssetsDir);
+            }
         }
 
         $dirs = [];
@@ -855,7 +933,7 @@ EOD;
     }
 
     /**
-     * 获取插件目标资源文件夹
+     * 获取插件目标资源文件夹（单个，向后兼容）
      * @param string $name 插件名称
      * @return  string
      */
@@ -869,6 +947,37 @@ EOD;
     }
 
     /**
+     * ============================================================
+     * 获取插件目标资源文件夹列表（多个静态目录）
+     * ============================================================
+     *
+     * 【功能说明】
+     * 返回所有存在的静态目录下的插件资源目录
+     * 用于同时复制/删除 static/addons/{name}/ 和 static_new/addons/{name}/
+     *
+     * 【返回规则】
+     * - static 存在：包含 static/addons/{name}/
+     * - static_new 存在：包含 static_new/addons/{name}/
+     * - 目录不存在时不会自动创建
+     *
+     * @param string $name 插件名称
+     * @param bool $autoCreate 是否自动创建目录
+     * @return array 目标资源目录列表
+     */
+    protected static function getDestAssetsDirs($name, $autoCreate = false)
+    {
+        $dirs = [];
+        foreach (self::getStaticDirs() as $staticDir) {
+            $assetsDir = ROOT_PATH . $staticDir . DS . 'addons' . DS . $name . DS;
+            if ($autoCreate && !is_dir($assetsDir)) {
+                mkdir($assetsDir, 0755, true);
+            }
+            $dirs[] = $assetsDir;
+        }
+        return $dirs;
+    }
+
+    /**
      * 获取远程服务器
      * @return  string
      */
@@ -879,14 +988,50 @@ EOD;
 
     /**
      * 获取检测的全局文件夹目录
+     * 动态检测 static 和 static_new 目录
      * @return  array
      */
     protected static function getCheckDirs()
     {
-        return [
-            'application',
-            'static'
-        ];
+        $dirs = ['application'];
+
+        // 动态检测静态目录
+        foreach (self::getStaticDirs() as $staticDir) {
+            $dirs[] = $staticDir;
+        }
+
+        return $dirs;
+    }
+
+    /**
+     * ============================================================
+     * 获取存在的静态资源目录列表
+     * ============================================================
+     *
+     * 【功能说明】
+     * 动态检测项目中存在的静态资源目录
+     * 支持 static 和 static_new 两个目录
+     *
+     * 【返回规则】
+     * - 两个目录都存在：返回 ['static', 'static_new']
+     * - 只有 static 存在：返回 ['static']
+     * - 只有 static_new 存在：返回 ['static_new']
+     * - 都不存在：返回空数组
+     *
+     * @return array 存在的静态目录列表
+     */
+    protected static function getStaticDirs()
+    {
+        $staticDirs = [];
+        $possibleDirs = ['static', 'static_new'];
+
+        foreach ($possibleDirs as $dir) {
+            if (is_dir(ROOT_PATH . $dir)) {
+                $staticDirs[] = $dir;
+            }
+        }
+
+        return $staticDirs;
     }
 
 }
