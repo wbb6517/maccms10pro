@@ -1,5 +1,48 @@
 <?php
-
+/**
+ * 插件服务类 (Addon Service)
+ * ============================================================
+ *
+ * 【功能说明】
+ * 提供插件的安装、卸载、启用、禁用、升级等核心操作
+ * 是插件系统的核心服务类
+ *
+ * 【方法列表】
+ * ┌────────────────────────┬────────────────────────────────────────────┐
+ * │ 方法名                  │ 说明                                        │
+ * ├────────────────────────┼────────────────────────────────────────────┤
+ * │ download()             │ 从远程服务器下载插件ZIP包                    │
+ * │ unzip()                │ 解压插件ZIP包到插件目录                      │
+ * │ backup()               │ 备份插件（打包为ZIP）                        │
+ * │ check()                │ 检测插件完整性（主类和配置）                 │
+ * │ noconflict()           │ 检测插件文件是否与现有文件冲突               │
+ * │ importsql()            │ 导入插件的 install.sql 文件                  │
+ * │ refresh()              │ 刷新插件缓存（addons.js 和 addons.php）      │
+ * │ install()              │ 安装插件（核心方法）                         │
+ * │ uninstall()            │ 卸载插件                                    │
+ * │ enable()               │ 启用插件                                    │
+ * │ disable()              │ 禁用插件                                    │
+ * │ upgrade()              │ 升级插件                                    │
+ * │ getGlobalFiles()       │ 获取插件的全局文件列表                       │
+ * │ getSourceAssetsDir()   │ 获取插件源资源目录                          │
+ * │ getDestAssetsDir()     │ 获取插件目标资源目录                        │
+ * │ getCheckDirs()         │ 获取需要检查的全局目录列表                   │
+ * └────────────────────────┴────────────────────────────────────────────┘
+ *
+ * 【插件安装流程】
+ * 下载ZIP → 解压 → 检查完整性 → 检查冲突 → 复制文件 → 执行install() → 导入SQL → 刷新缓存
+ *
+ * 【文件复制规则】
+ * addons/{name}/assets/       → static/addons/{name}/     （资源文件）
+ * addons/{name}/application/  → application/              （应用文件）
+ * addons/{name}/static/       → static/                   （静态文件）
+ *
+ * 【相关文件】
+ * - application/admin/controller/Addon.php : 后台控制器
+ * - vendor/.../src/common.php : 插件公共函数
+ *
+ * ============================================================
+ */
 namespace think\addons;
 
 use fast\Http;
@@ -10,7 +53,7 @@ use think\Exception;
 use ZipArchive;
 
 /**
- * 插件服务
+ * 插件服务类
  * @package think\addons
  */
 class Service
@@ -249,38 +292,75 @@ EOD;
     }
 
     /**
-     * 安装插件
+     * ============================================================
+     * 安装插件（核心方法）
+     * ============================================================
+     *
+     * 【功能说明】
+     * 完整的插件安装流程，包括下载、解压、检查、复制文件、执行安装脚本等
+     *
+     * 【安装流程】
+     * ┌─────────────────────────────────────────────────────────────┐
+     * │ 1. 下载ZIP  →  从远程服务器下载插件压缩包                    │
+     * │ 2. 解压文件  →  解压到 addons/{name}/ 目录                  │
+     * │ 3. 完整性检查 →  检查主类和配置文件是否存在                   │
+     * │ 4. 冲突检查  →  检查是否与现有文件冲突                       │
+     * │ 5. 复制文件  →  复制 assets/application/static 到目标位置   │
+     * │ 6. 启用插件  →  设置 state=1                                │
+     * │ 7. 执行脚本  →  调用插件的 install() 方法                   │
+     * │ 8. 导入SQL   →  执行 install.sql 文件                       │
+     * │ 9. 刷新缓存  →  更新 addons.js 和 addons.php                │
+     * └─────────────────────────────────────────────────────────────┘
+     *
+     * 【文件复制规则】
+     * addons/{name}/assets/       → static/addons/{name}/
+     * addons/{name}/application/  → application/
+     * addons/{name}/static/       → static/
      *
      * @param string  $name   插件名称
-     * @param boolean $force  是否覆盖
-     * @param array   $extend 扩展参数
+     * @param boolean $force  是否覆盖（强制安装，忽略冲突）
+     * @param array   $extend 扩展参数（uid/token/version等）
      * @return  boolean
      * @throws  Exception
      * @throws  AddonException
      */
     public static function install($name, $force = false, $extend = [])
     {
+        // ========== 第1步：验证插件是否已存在 ==========
+        // 如果插件目录已存在且非强制安装，则抛出异常
         if (!$name || (is_dir(ADDON_PATH . $name) && !$force)) {
             throw new Exception('Addon already exists');
         }
 
-        // 远程下载插件
+        // ========== 第2步：远程下载插件 ==========
+        // 从远程服务器下载插件 ZIP 包
+        // 保存到临时目录：runtime/addons/{name}.zip
         $tmpFile = Service::download($name, $extend);
 
-        // 解压插件
+        // ========== 第3步：解压插件 ==========
+        // 使用 ZipArchive 解压到插件目录：addons/{name}/
         $addonDir = Service::unzip($name);
 
-        // 移除临时文件
+        // 移除临时ZIP文件，释放磁盘空间
         @unlink($tmpFile);
 
         try {
-            // 检查插件是否完整
+            // ========== 第4步：检查插件完整性 ==========
+            // 检查项目：
+            // - 插件目录是否存在
+            // - 插件主类 {Name}.php 是否存在
+            // - info.ini 配置是否完整
             Service::check($name);
 
+            // ========== 第5步：检查文件冲突 ==========
+            // 扫描 application/ 和 static/ 目录
+            // 检查是否与现有文件冲突（大小或MD5不同）
+            // force=true 时跳过此检查
             if (!$force) {
                 Service::noconflict($name);
             }
         } catch (AddonException $e) {
+            // 检查失败，删除已解压的插件目录
             @rmdirs($addonDir);
             throw new AddonException($e->getMessage(), $e->getCode(), $e->getData());
         } catch (Exception $e) {
@@ -288,12 +368,21 @@ EOD;
             throw new Exception($e->getMessage());
         }
 
-        // 复制文件
+        // ========== 第6步：复制文件 ⭐ 关键步骤 ==========
+        // 【复制资源文件】
+        // 源目录：addons/{name}/assets/
+        // 目标目录：static/addons/{name}/
         $sourceAssetsDir = self::getSourceAssetsDir($name);
         $destAssetsDir = self::getDestAssetsDir($name);
         if (is_dir($sourceAssetsDir)) {
             copydirs($sourceAssetsDir, $destAssetsDir);
         }
+
+        // 【复制全局文件】
+        // 遍历 getCheckDirs() 返回的目录列表：['application', 'static']
+        // 如果插件中存在这些目录，则复制到项目根目录
+        // addons/{name}/application/ → ROOT_PATH/application/
+        // addons/{name}/static/      → ROOT_PATH/static/
         foreach (self::getCheckDirs() as $k => $dir) {
             if (is_dir($addonDir . $dir)) {
                 copydirs($addonDir . $dir, ROOT_PATH . $dir);
@@ -301,14 +390,22 @@ EOD;
         }
 
         try {
-            // 默认启用该插件
+            // ========== 第7步：启用插件 ==========
+            // 读取插件 info.ini，设置 state=1（启用状态）
             $info = get_addon_info($name);
             if (!$info['state']) {
                 $info['state'] = 1;
                 set_addon_info($name, $info);
             }
 
-            // 执行安装脚本
+            // ========== 第8步：执行插件安装脚本 ==========
+            // 获取插件主类的完整类名：\addons\{name}\{Name}
+            // 实例化插件类并调用 install() 方法
+            // 插件可以在 install() 中执行自定义安装逻辑：
+            // - 创建数据表
+            // - 初始化配置
+            // - 注册菜单
+            // - 复制额外文件等
             $class = get_addon_class($name);
             if (class_exists($class)) {
                 $addon = new $class();
@@ -318,39 +415,66 @@ EOD;
             throw new Exception($e->getMessage());
         }
 
-        // 导入
+        // ========== 第9步：导入SQL ==========
+        // 读取并执行 addons/{name}/install.sql 文件
+        // 自动替换 __PREFIX__ 为实际数据库前缀
         Service::importsql($name);
 
-        // 刷新
+        // ========== 第10步：刷新插件缓存 ==========
+        // - 合并所有启用插件的 bootstrap.js → static/js/addons.js
+        // - 重新生成 application/extra/addons.php 配置
         Service::refresh();
         return true;
     }
 
     /**
+     * ============================================================
      * 卸载插件
+     * ============================================================
      *
-     * @param string  $name
-     * @param boolean $force 是否强制卸载
+     * 【功能说明】
+     * 完整卸载插件，包括删除资源文件、执行卸载脚本、删除插件目录
+     *
+     * 【卸载流程】
+     * ┌─────────────────────────────────────────────────────────────┐
+     * │ 1. 验证插件  →  检查插件目录是否存在                         │
+     * │ 2. 冲突检查  →  检查文件冲突（非强制时）                     │
+     * │ 3. 删除资源  →  删除 static/addons/{name}/ 目录             │
+     * │ 4. 删除全局  →  删除复制到 application/ static/ 的文件      │
+     * │ 5. 执行脚本  →  调用插件的 uninstall() 方法                 │
+     * │ 6. 删除目录  →  删除整个 addons/{name}/ 目录                │
+     * │ 7. 刷新缓存  →  更新 addons.js 和 addons.php                │
+     * └─────────────────────────────────────────────────────────────┘
+     *
+     * @param string  $name   插件名称
+     * @param boolean $force  是否强制卸载（忽略冲突，删除全局文件）
      * @return  boolean
      * @throws  Exception
      */
     public static function uninstall($name, $force = false)
     {
+        // ========== 第1步：验证插件是否存在 ==========
         if (!$name || !is_dir(ADDON_PATH . $name)) {
             throw new Exception('Addon not exists');
         }
 
+        // ========== 第2步：检查文件冲突 ==========
+        // 非强制卸载时，检查是否有文件冲突
         if (!$force) {
             Service::noconflict($name);
         }
 
-        // 移除插件基础资源目录
+        // ========== 第3步：移除插件基础资源目录 ==========
+        // 删除 static/addons/{name}/ 目录
+        // 这是安装时从 addons/{name}/assets/ 复制过来的
         $destAssetsDir = self::getDestAssetsDir($name);
         if (is_dir($destAssetsDir)) {
             rmdirs($destAssetsDir);
         }
 
-        // 移除插件全局资源文件
+        // ========== 第4步：移除插件全局资源文件 ==========
+        // 仅在强制卸载时执行
+        // 删除安装时复制到 application/ 和 static/ 的文件
         if ($force) {
             $list = Service::getGlobalFiles($name);
             foreach ($list as $k => $v) {
@@ -358,7 +482,12 @@ EOD;
             }
         }
 
-        // 执行卸载脚本
+        // ========== 第5步：执行插件卸载脚本 ==========
+        // 获取插件主类并调用 uninstall() 方法
+        // 插件可以在此方法中执行清理操作：
+        // - 删除自定义数据表
+        // - 清理配置
+        // - 移除菜单等
         try {
             $class = get_addon_class($name);
             if (class_exists($class)) {
@@ -369,63 +498,106 @@ EOD;
             throw new Exception($e->getMessage());
         }
 
-        // 移除插件目录
+        // ========== 第6步：移除插件目录 ==========
+        // 删除整个 addons/{name}/ 目录
         rmdirs(ADDON_PATH . $name);
 
-        // 刷新
+        // ========== 第7步：刷新插件缓存 ==========
         Service::refresh();
         return true;
     }
 
     /**
-     * 启用
+     * ============================================================
+     * 启用插件
+     * ============================================================
+     *
+     * 【功能说明】
+     * 启用已安装但处于禁用状态的插件
+     * 重新复制资源文件并设置状态为启用
+     *
+     * 【启用流程】
+     * ┌─────────────────────────────────────────────────────────────┐
+     * │ 1. 验证插件  →  检查插件目录是否存在                         │
+     * │ 2. 冲突检查  →  检查文件冲突（非强制时）                     │
+     * │ 3. 复制文件  →  复制 static/assets/view/application 等     │
+     * │ 4. 执行脚本  →  调用插件的 enable() 方法                    │
+     * │ 5. 更新状态  →  设置 info.ini 中 state=1                    │
+     * │ 6. 刷新缓存  →  更新 addons.js 和 addons.php                │
+     * └─────────────────────────────────────────────────────────────┘
+     *
+     * 【文件复制规则】（与安装类似但有扩展）
+     * addons/{name}/static/       → static_new/{name}/
+     * addons/{name}/assets/       → static_new/addons/{name}/ 和 static/addons/{name}/
+     * addons/{name}/view/         → application/admin/view_new/{name}/
+     * addons/{name}/application/  → application/
+     * addons/{name}/static/       → static/
+     *
      * @param string  $name  插件名称
-     * @param boolean $force 是否强制覆盖
+     * @param boolean $force 是否强制启用（忽略冲突）
      * @return  boolean
+     * @throws  Exception
      */
     public static function enable($name, $force = false)
     {
+        // ========== 第1步：验证插件是否存在 ==========
         if (!$name || !is_dir(ADDON_PATH . $name)) {
             throw new Exception('Addon not exists');
         }
 
+        // ========== 第2步：检查文件冲突 ==========
         if (!$force) {
             Service::noconflict($name);
         }
 
         $addonDir = ADDON_PATH . $name . DS;
 
-        // 复制文件
+        // ========== 第3步：复制文件 ⭐ 关键步骤 ==========
         $sourceAssetsDir = self::getSourceAssetsDir($name);
         $destAssetsDir = self::getDestAssetsDir($name);
-        
+
+        // 【复制静态资源到 static_new】
+        // addons/{name}/static/ → static_new/{name}/
         $staticSource = $addonDir . 'static/';
         $staticDest = ROOT_PATH . 'static_new/' . $name . '/';
         if (is_dir($staticSource)) {
             copydirs($staticSource, $staticDest);
         }
 
+        // 【复制 assets 到 static_new/addons】
+        // addons/{name}/assets/ → static_new/addons/{name}/
         $staticSourceAsset = $addonDir . 'assets/';
         $staticAssetDest = ROOT_PATH . 'static_new/addons/' . $name . '/';
         if (is_dir($staticSourceAsset)) {
             copydirs($staticSourceAsset, $staticAssetDest);
         }
 
+        // 【复制视图文件】
+        // addons/{name}/view/ → application/admin/view_new/{name}/
         $viewSource = $addonDir . 'view/';
         $viewDest = APP_PATH . 'admin/view_new/' . $name . '/';
         if (is_dir($viewSource)) {
             copydirs($viewSource, $viewDest);
         }
+
+        // 【复制 assets 到 static/addons】
+        // addons/{name}/assets/ → static/addons/{name}/
         if (is_dir($sourceAssetsDir)) {
             copydirs($sourceAssetsDir, $destAssetsDir);
         }
+
+        // 【复制全局文件】
+        // addons/{name}/application/ → application/
+        // addons/{name}/static/      → static/
         foreach (self::getCheckDirs() as $k => $dir) {
             if (is_dir($addonDir . $dir)) {
                 copydirs($addonDir . $dir, ROOT_PATH . $dir);
             }
         }
 
-        //执行启用脚本
+        // ========== 第4步：执行插件启用脚本 ==========
+        // 调用插件的 enable() 方法（如果存在）
+        // 插件可以在此方法中执行启用时的初始化操作
         try {
             $class = get_addon_class($name);
             if (class_exists($class)) {
@@ -438,76 +610,121 @@ EOD;
             throw new Exception($e->getMessage());
         }
 
+        // ========== 第5步：更新插件状态 ==========
+        // 读取 info.ini，设置 state=1（启用）
+        // 移除动态生成的 url 字段后写回文件
         $info = get_addon_info($name);
         $info['state'] = 1;
         unset($info['url']);
 
         set_addon_info($name, $info);
 
-        // 刷新
+        // ========== 第6步：刷新插件缓存 ==========
         Service::refresh();
         return true;
     }
 
     /**
-     * 禁用
+     * ============================================================
+     * 禁用插件
+     * ============================================================
+     *
+     * 【功能说明】
+     * 禁用已启用的插件
+     * 删除资源文件但保留插件目录（可重新启用）
+     *
+     * 【禁用流程】
+     * ┌─────────────────────────────────────────────────────────────┐
+     * │ 1. 验证插件  →  检查插件目录是否存在                         │
+     * │ 2. 冲突检查  →  检查文件冲突（非强制时）                     │
+     * │ 3. 删除资源  →  删除 static/addons/{name}/ 目录             │
+     * │ 4. 删除全局  →  删除复制到 application/ static/ 的文件      │
+     * │ 5. 清理目录  →  删除空目录                                  │
+     * │ 6. 删除扩展  →  删除 static_new/ view_new/ 中的文件         │
+     * │ 7. 更新状态  →  设置 info.ini 中 state=0                    │
+     * │ 8. 执行脚本  →  调用插件的 disable() 方法                   │
+     * │ 9. 刷新缓存  →  更新 addons.js 和 addons.php                │
+     * └─────────────────────────────────────────────────────────────┘
+     *
+     * 【与卸载的区别】
+     * - 禁用：保留 addons/{name}/ 目录，可重新启用
+     * - 卸载：删除整个插件目录，需要重新安装
      *
      * @param string  $name  插件名称
-     * @param boolean $force 是否强制禁用
+     * @param boolean $force 是否强制禁用（忽略冲突）
      * @return  boolean
      * @throws  Exception
      */
     public static function disable($name, $force = false)
     {
+        // ========== 第1步：验证插件是否存在 ==========
         if (!$name || !is_dir(ADDON_PATH . $name)) {
             throw new Exception('Addon not exists');
         }
+
+        // ========== 第2步：检查文件冲突 ==========
         if (!$force) {
             Service::noconflict($name);
         }
 
-        // 移除插件基础资源目录
+        // ========== 第3步：移除插件基础资源目录 ==========
+        // 删除 static/addons/{name}/
         $destAssetsDir = self::getDestAssetsDir($name);
         if (is_dir($destAssetsDir)) {
             rmdirs($destAssetsDir);
         }
 
         $dirs = [];
-        // 移除插件全局资源文件
+
+        // ========== 第4步：移除插件全局资源文件 ==========
+        // 删除复制到 application/ 和 static/ 的文件
+        // 同时记录这些文件所在的目录，用于后续清理空目录
         $list = Service::getGlobalFiles($name);
         foreach ($list as $k => $v) {
             $dirs[] = dirname(ROOT_PATH . $v);
             @unlink(ROOT_PATH . $v);
         }
 
-        // 移除插件空目录
+        // ========== 第5步：移除空目录 ==========
+        // 删除文件后，清理可能产生的空目录
+        // remove_empty_folder() 会递归向上删除空目录
         $dirs = array_filter(array_unique($dirs));
         foreach ($dirs as $k => $v) {
             remove_empty_folder($v);
         }
 
+        // ========== 第6步：删除扩展目录中的文件 ==========
+        // 删除启用时复制到 static_new/ 和 view_new/ 的文件
+
+        // 删除 static_new/{name}/
         $staticDest = ROOT_PATH . 'static_new/' . $name . '/';
         if (is_dir($staticDest)) {
             rmdirs($staticDest);
         }
 
+        // 删除 static_new/addons/{name}/
         $staticAssetDest = ROOT_PATH . 'static_new/addons/' . $name . '/';
         if (is_dir($staticAssetDest)) {
             rmdirs($staticAssetDest);
         }
 
+        // 删除 application/admin/view_new/{name}/
         $viewDest = APP_PATH . 'admin/view_new/' . $name . '/';
         if (is_dir($viewDest)) {
             rmdirs($viewDest);
         }
 
+        // ========== 第7步：更新插件状态 ==========
+        // 读取 info.ini，设置 state=0（禁用）
         $info = get_addon_info($name);
         $info['state'] = 0;
         unset($info['url']);
 
         set_addon_info($name, $info);
 
-        // 执行禁用脚本
+        // ========== 第8步：执行插件禁用脚本 ==========
+        // 调用插件的 disable() 方法（如果存在）
+        // 插件可以在此方法中执行禁用时的清理操作
         try {
             $class = get_addon_class($name);
             if (class_exists($class)) {
@@ -521,7 +738,7 @@ EOD;
             throw new Exception($e->getMessage());
         }
 
-        // 刷新
+        // ========== 第9步：刷新插件缓存 ==========
         Service::refresh();
         return true;
     }

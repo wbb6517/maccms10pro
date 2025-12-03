@@ -1,4 +1,71 @@
 <?php
+/**
+ * 插件系统公共函数库 (Addon Common Functions)
+ * ============================================================
+ *
+ * 【文件说明】
+ * FastAdmin 插件扩展的核心函数库
+ * 提供插件管理所需的所有辅助函数
+ *
+ * 【函数列表】
+ * ┌──────────────────────────┬────────────────────────────────────────────┐
+ * │ 函数名                    │ 说明                                        │
+ * ├──────────────────────────┼────────────────────────────────────────────┤
+ * │ hook()                   │ 处理插件钩子                                │
+ * │ remove_empty_folder()    │ 递归移除空目录                              │
+ * │ get_addon_list()         │ 获取所有已安装插件列表                      │
+ * │ get_addon_autoload_config│ 获取插件自动加载配置                        │
+ * │ get_addon_class()        │ 获取插件类的完整类名                        │
+ * │ get_addon_info()         │ 读取插件基础信息（info.ini）                │
+ * │ get_addon_fullconfig()   │ 获取插件完整配置数组                        │
+ * │ get_addon_config()       │ 获取插件配置值（键值对）                    │
+ * │ get_addon_instance()     │ 获取插件类单例实例                          │
+ * │ addon_url()              │ 生成插件访问URL                             │
+ * │ set_addon_info()         │ 写入插件基础信息到 info.ini                 │
+ * │ set_addon_config()       │ 写入插件配置                                │
+ * │ set_addon_fullconfig()   │ 写入完整配置到 config.php                   │
+ * └──────────────────────────┴────────────────────────────────────────────┘
+ *
+ * 【插件目录结构】
+ * addons/                      # 插件根目录（ADDON_PATH常量）
+ * └── {addon_name}/            # 插件目录（小写）
+ *     ├── info.ini             # 插件基础信息（必须）
+ *     ├── config.php           # 插件配置文件（可选）
+ *     ├── {AddonName}.php      # 插件主类（首字母大写）
+ *     ├── controller/          # 控制器目录
+ *     ├── model/               # 模型目录
+ *     ├── view/                # 视图目录
+ *     └── install.sql          # 安装SQL（可选）
+ *
+ * 【info.ini 配置格式】
+ * name = example               ; 插件标识（与目录名一致）
+ * title = 示例插件             ; 插件名称
+ * intro = 这是一个示例插件     ; 简介
+ * author = 作者名              ; 作者
+ * website = https://xxx.com    ; 网站
+ * version = 1.0.0              ; 版本号
+ * state = 1                    ; 状态：0=禁用, 1=启用
+ *
+ * 【config.php 配置格式】
+ * return [
+ *     [
+ *         'name'    => 'api_key',        // 配置项名称
+ *         'title'   => 'API密钥',        // 显示标题
+ *         'type'    => 'string',         // 输入类型
+ *         'content' => [],               // 选项内容
+ *         'value'   => '',               // 当前值
+ *         'rule'    => 'required',       // 验证规则
+ *         'tip'     => '请输入API密钥',  // 提示说明
+ *     ],
+ *     // ... 更多配置项
+ * ];
+ *
+ * 【依赖关系】
+ * - 本文件被 composer autoload 自动加载
+ * - 依赖 ThinkPHP5 框架的各类组件
+ *
+ * ============================================================
+ */
 
 use think\App;
 use think\Cache;
@@ -128,43 +195,107 @@ function remove_empty_folder($dir)
 }
 
 /**
- * 获得插件列表
- * @return array
+ * ============================================================
+ * 获取所有已安装插件列表
+ * ============================================================
+ *
+ * 【功能说明】
+ * 扫描 addons/ 目录，获取所有已安装插件的信息
+ * 返回以插件名为键的关联数组
+ *
+ * 【扫描规则】
+ * 必须同时满足以下条件才被识别为有效插件：
+ * 1. 是目录（不是文件）
+ * 2. 存在插件主类文件：{AddonName}.php（首字母大写）
+ * 3. 存在配置文件：info.ini
+ * 4. info.ini 中包含 name 字段
+ *
+ * 【返回数据格式】
+ * [
+ *     'example' => [
+ *         'name'    => 'example',
+ *         'title'   => '示例插件',
+ *         'intro'   => '这是一个示例',
+ *         'author'  => '作者',
+ *         'version' => '1.0.0',
+ *         'state'   => 1,
+ *         'url'     => '/addons/example',
+ *     ],
+ *     // ... 更多插件
+ * ]
+ *
+ * 【注意事项】
+ * - 不使用 get_addon_info() 是为了避免缓存问题
+ * - 直接解析 info.ini 文件获取最新信息
+ *
+ * @return array 插件信息数组
  */
 function get_addon_list()
 {
+    // ========== 第一步：扫描插件目录 ==========
+    // scandir() 返回目录中的所有文件和子目录
+    // 包含 "." 和 ".." 两个特殊目录
     $results = scandir(ADDON_PATH);
     $list = [];
+
+    // ========== 第二步：遍历检查每个目录 ==========
     foreach ($results as $name) {
+        // 跳过当前目录和上级目录的特殊引用
         if ($name === '.' or $name === '..') {
             continue;
         }
+
+        // 跳过文件（只处理目录）
+        // 插件必须是一个独立的目录
         if (is_file(ADDON_PATH . $name)) {
             continue;
         }
+
+        // 构建插件目录完整路径
         $addonDir = ADDON_PATH . $name . DS;
+
+        // 再次确认是目录
         if (!is_dir($addonDir)) {
             continue;
         }
 
+        // ========== 第三步：检查插件主类文件 ==========
+        // 插件主类文件命名规则：首字母大写的插件名 + .php
+        // 例如：插件目录 example → 主类文件 Example.php
+        // ucfirst() 将字符串首字母转为大写
         if (!is_file($addonDir . ucfirst($name) . '.php')) {
             continue;
         }
 
-        //这里不采用get_addon_info是因为会有缓存
-        //$info = get_addon_info($name);
+        // ========== 第四步：检查并解析 info.ini ==========
+        // info.ini 是插件的必备配置文件
+        // 包含插件的基本信息：name, title, intro, author, version, state
+        //
+        // 【为什么不用 get_addon_info()】
+        // get_addon_info() 会通过插件实例获取信息，会有缓存
+        // 这里需要获取最新的目录状态，所以直接解析文件
         $info_file = $addonDir . 'info.ini';
         if (!is_file($info_file)) {
             continue;
         }
 
+        // Config::parse() 解析 INI 文件为数组
+        // 第三个参数是缓存键名，用于 ThinkPHP 配置缓存
         $info = Config::parse($info_file, '', "addon-info-{$name}");
+
+        // 验证 info.ini 中必须包含 name 字段
         if (!isset($info['name'])) {
             continue;
         }
+
+        // ========== 第五步：生成插件URL并添加到列表 ==========
+        // addon_url() 生成插件的访问地址
         $info['url'] = addon_url($name);
+
+        // 以插件名为键存入数组
         $list[$name] = $info;
     }
+
     return $list;
 }
 
@@ -250,92 +381,221 @@ function get_addon_autoload_config($truncate = false)
 }
 
 /**
- * 获取插件类的类名
- * @param string $name  插件名
- * @param string $type  返回命名空间类型
- * @param string $class 当前类名
- * @return string
+ * ============================================================
+ * 获取插件类的完整类名（命名空间）
+ * ============================================================
+ *
+ * 【功能说明】
+ * 根据插件名和类型，生成完整的类名（含命名空间）
+ * 用于动态实例化插件类
+ *
+ * 【参数说明】
+ * @param string $name  插件名（如 example）
+ * @param string $type  类型：'hook'=插件主类, 'controller'=控制器
+ * @param string $class 指定类名（可选，默认与插件名同名）
+ *
+ * 【返回值】
+ * - 成功：完整类名，如 "\addons\example\Example"
+ * - 失败：空字符串（类不存在时）
+ *
+ * 【命名空间规则】
+ * - 插件主类：\addons\{name}\{Name}
+ * - 控制器类：\addons\{name}\controller\{Class}
+ *
+ * @return string 完整类名或空字符串
  */
 function get_addon_class($name, $type = 'hook', $class = null)
 {
+    // 将插件名转为小写格式（统一规范）
+    // Loader::parseName() 用于名称风格转换
     $name = Loader::parseName($name);
-    // 处理多级控制器情况
+
+    // 处理多级控制器情况（如 admin.user → admin\User）
     if (!is_null($class) && strpos($class, '.')) {
         $class = explode('.', $class);
-
+        // 最后一个元素转为大驼峰格式
         $class[count($class) - 1] = Loader::parseName(end($class), 1);
         $class = implode('\\', $class);
     } else {
+        // 普通类名转为大驼峰格式
+        // parseName($name, 1) : 转为大驼峰（example → Example）
         $class = Loader::parseName(is_null($class) ? $name : $class, 1);
     }
+
+    // 根据类型生成完整命名空间
     switch ($type) {
         case 'controller':
+            // 控制器类：\addons\example\controller\Index
             $namespace = "\\addons\\" . $name . "\\controller\\" . $class;
             break;
         default:
+            // 插件主类：\addons\example\Example
             $namespace = "\\addons\\" . $name . "\\" . $class;
     }
+
+    // 检查类是否存在，存在则返回类名，否则返回空字符串
     return class_exists($namespace) ? $namespace : '';
 }
 
 /**
- * 读取插件的基础信息
+ * ============================================================
+ * 读取插件的基础信息（info.ini）
+ * ============================================================
+ *
+ * 【功能说明】
+ * 通过插件实例获取插件的基础信息
+ * 信息来源于插件目录下的 info.ini 文件
+ *
+ * 【返回数据】
+ * [
+ *     'name'    => 'example',      // 插件标识
+ *     'title'   => '示例插件',     // 插件名称
+ *     'intro'   => '简介说明',     // 简介
+ *     'author'  => '作者名',       // 作者
+ *     'website' => 'https://...',  // 网站
+ *     'version' => '1.0.0',        // 版本
+ *     'state'   => 1,              // 状态：0=禁用, 1=启用
+ * ]
+ *
+ * 【实现方式】
+ * 通过 get_addon_instance() 获取插件单例
+ * 调用插件实例的 getInfo() 方法获取信息
+ *
  * @param string $name 插件名
- * @return array
+ * @return array 插件信息数组，失败返回空数组
  */
 function get_addon_info($name)
 {
+    // 获取插件实例（单例模式）
     $addon = get_addon_instance($name);
     if (!$addon) {
         return [];
     }
+    // 调用插件实例的 getInfo() 方法
+    // 该方法在插件基类 think\Addons 中定义
     return $addon->getInfo($name);
 }
 
 /**
- * 获取插件类的配置数组
+ * ============================================================
+ * 获取插件的完整配置数组（config.php）
+ * ============================================================
+ *
+ * 【功能说明】
+ * 获取插件配置的完整信息，包含每个配置项的所有属性
+ * 用于后台配置表单的动态生成
+ *
+ * 【返回数据格式】
+ * [
+ *     [
+ *         'name'    => 'api_key',        // 配置项名称（字段名）
+ *         'title'   => 'API密钥',        // 显示标题
+ *         'type'    => 'string',         // 输入类型
+ *         'content' => [],               // 选项内容（select/radio/checkbox用）
+ *         'value'   => 'xxx',            // 当前值
+ *         'rule'    => 'required',       // 验证规则
+ *         'tip'     => '提示说明',       // 帮助提示
+ *         'extend'  => '',               // 扩展属性
+ *     ],
+ *     // ... 更多配置项
+ * ]
+ *
+ * 【与 get_addon_config() 的区别】
+ * - get_addon_fullconfig() : 返回完整配置数组（含 title, type, tip 等）
+ * - get_addon_config()     : 只返回键值对（name => value）
+ *
  * @param string $name 插件名
- * @return array
+ * @return array 完整配置数组
  */
 function get_addon_fullconfig($name)
 {
+    // 获取插件实例
     $addon = get_addon_instance($name);
     if (!$addon) {
         return [];
     }
+    // 调用插件实例的 getFullConfig() 方法
     return $addon->getFullConfig($name);
 }
 
 /**
- * 获取插件类的配置值值
+ * ============================================================
+ * 获取插件配置的键值对
+ * ============================================================
+ *
+ * 【功能说明】
+ * 获取插件配置的简化版本，只返回配置名和配置值
+ * 用于业务逻辑中直接读取配置值
+ *
+ * 【返回数据格式】
+ * [
+ *     'api_key'    => 'xxxxx',
+ *     'api_secret' => 'yyyyy',
+ *     'enabled'    => 1,
+ *     // ... 更多配置
+ * ]
+ *
+ * 【使用场景】
+ * 在插件代码中读取配置：
+ * $config = get_addon_config('example');
+ * $apiKey = $config['api_key'];
+ *
  * @param string $name 插件名
- * @return array
+ * @return array 配置键值对数组
  */
 function get_addon_config($name)
 {
+    // 获取插件实例
     $addon = get_addon_instance($name);
     if (!$addon) {
         return [];
     }
+    // 调用插件实例的 getConfig() 方法
     return $addon->getConfig($name);
 }
 
 /**
- * 获取插件的单例
+ * ============================================================
+ * 获取插件的单例实例
+ * ============================================================
+ *
+ * 【功能说明】
+ * 使用单例模式获取插件主类的实例
+ * 避免重复实例化，提高性能
+ *
+ * 【单例实现】
+ * 使用静态变量 $_addons 缓存已创建的实例
+ * 相同插件名只会实例化一次
+ *
+ * 【实例化过程】
+ * 1. 检查缓存中是否已存在该插件实例
+ * 2. 不存在则通过 get_addon_class() 获取类名
+ * 3. 实例化插件类并缓存
+ *
  * @param string $name 插件名
- * @return mixed|null
+ * @return mixed|null 插件实例或 null（插件不存在时）
  */
 function get_addon_instance($name)
 {
+    // 静态变量存储插件实例缓存
+    // 同一请求中相同插件只实例化一次
     static $_addons = [];
+
+    // 如果已缓存，直接返回
     if (isset($_addons[$name])) {
         return $_addons[$name];
     }
+
+    // 获取插件主类的完整类名
     $class = get_addon_class($name);
+
+    // 检查类是否存在并实例化
     if (class_exists($class)) {
+        // 创建实例并缓存
         $_addons[$name] = new $class();
         return $_addons[$name];
     } else {
+        // 类不存在返回 null
         return null;
     }
 }

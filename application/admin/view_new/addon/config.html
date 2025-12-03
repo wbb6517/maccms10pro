@@ -1,3 +1,59 @@
+<!--
+插件配置页面 (Addon Config View)
+============================================================
+
+【页面说明】
+插件参数配置页面
+根据插件的 config.php 定义动态生成配置表单
+
+【控制器方法】
+Addon::config() - application/admin/controller/Addon.php
+
+【访问路径】
+GET/POST admin.php/addon/config?name={插件名}
+
+【模板变量】
+$info   - 插件信息（来自 info.ini）
+  - name    : 插件标识
+  - title   : 插件名称
+  - intro   : 简介
+  - author  : 作者
+  - version : 版本
+  - state   : 状态
+
+$config - 插件配置数组（来自 config.php）
+  - name    : 配置项名称
+  - title   : 配置项标题
+  - type    : 输入类型
+  - value   : 当前值
+  - content : 选项内容（select/radio/checkbox用）
+  - rule    : 验证规则
+  - tip     : 提示说明
+  - extend  : 扩展属性
+
+【支持的配置类型】
+┌─────────────┬────────────────────────────────────────┐
+│ 类型         │ 说明                                    │
+├─────────────┼────────────────────────────────────────┤
+│ string      │ 单行文本输入                            │
+│ text        │ 多行文本输入                            │
+│ number      │ 数字输入                                │
+│ bool        │ 是/否单选                               │
+│ radio       │ 单选按钮组                              │
+│ checkbox    │ 多选框组                                │
+│ select      │ 下拉单选                                │
+│ selects     │ 下拉多选                                │
+│ image/images│ 图片上传                                │
+│ file/files  │ 文件上传                                │
+│ array       │ 数组类型（键值对）                      │
+│ datetime    │ 日期时间选择                            │
+└─────────────┴────────────────────────────────────────┘
+
+【表单提交】
+POST 提交到当前页面，保存配置到插件的 config.php 文件
+
+============================================================
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
     <div class="showpic" style="display:none;"><img class="showpic_img" width="120" height="160"></div>
