@@ -1,3 +1,8 @@
+<!--
+文件上传表单页
+【控制器】Upload::index()
+【功能】提供简单的文件上传表单，用于内嵌在弹窗或iframe中选择并上传文件
+-->
 <body style="margin:0px;padding:0px;text-align:left">
 <form name="form" enctype="multipart/form-data" action="{:url('upload/upload')}" method="post">
     <input type="hidden" name="path" value="{$path}">
