@@ -1,6 +1,12 @@
+<!--
+数据库备份页 - 数据表列表
+【控制器】Database::index() (group=export)
+【功能】显示数据表列表，支持选择表备份/优化/修复
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
 
+    <!-- 工具栏: Tab切换 + 操作按钮 -->
     <div class="my-toolbar-box" >
         <ul class="layui-tab-title mb10">
             <li class="layui-this"><a href="{:url('index')}">{:lang('admin/database/backup_db')}</a></li>
@@ -14,6 +20,7 @@
         </div>
     </div>
 
+    <!-- 数据表列表 -->
     <form id="pageListForm" class="layui-form">
         <table class="layui-table mt10" lay-even="">
             <colgroup>

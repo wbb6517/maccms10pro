@@ -1,3 +1,8 @@
+<!--
+SQL语句执行页
+【控制器】Database::sql()
+【功能】执行自定义SQL语句，支持{pre}表前缀占位符
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 
 <div class="page-container">
@@ -9,19 +14,22 @@
             </ul>
             <div class="layui-tab-content">
                 <div class="layui-tab-item layui-show" id="movementTable">
+                    <!-- 使用提示 -->
                     <blockquote class="layui-elem-quote layui-quote-nm">
                         {:lang('admin/database/sql_tip')}
                     </blockquote>
 
-                <div class="layui-form-item">
-                    <div class="layui-input-block" >
-                        <textarea name="sql" class="layui-textarea" rows="10" placeholder="" ></textarea>
+                    <!-- SQL输入框 -->
+                    <div class="layui-form-item">
+                        <div class="layui-input-block" >
+                            <textarea name="sql" class="layui-textarea" rows="10" placeholder="" ></textarea>
+                        </div>
                     </div>
-                </div>
 
-            </div>
+                </div>
             </div>
         </div>
+        <!-- 提交按钮 -->
         <div class="layui-form-item center">
             <div class="layui-input-block">
                 <button type="submit" class="layui-btn" lay-submit="" lay-filter="formSubmit">{:lang('start_exec')}</button>

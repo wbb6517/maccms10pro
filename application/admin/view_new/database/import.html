@@ -1,6 +1,12 @@
+<!--
+数据库恢复页 - 备份文件列表
+【控制器】Database::index() (group=import)
+【功能】显示备份文件列表，支持恢复和删除
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
 
+    <!-- 工具栏: Tab切换 -->
     <div class="my-toolbar-box" >
         <ul class="layui-tab-title mb10">
             <li ><a href="{:url('index')}">{:lang('admin/database/backup_db')}</a></li>
@@ -8,6 +14,7 @@
         </ul>
     </div>
 
+    <!-- 备份文件列表 -->
     <form id="pageListForm" class="layui-form">
         <table class="layui-table mt10" lay-even="" >
             <thead>

@@ -1,3 +1,8 @@
+<!--
+数据批量替换页
+【控制器】Database::rep()
+【功能】批量查找替换指定表字段中的内容
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <style>
     .layui-form-select ul {max-height:200px}
@@ -13,6 +18,7 @@
             <div class="layui-tab-content">
                 <div class="layui-tab-item layui-show" id="movementTable">
 
+                <!-- 选择表 -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('admin/database/select_table')}：</label>
                     <div class="layui-input-inline w400" >
@@ -23,12 +29,14 @@
                         </select>
                     </div>
                 </div>
+                <!-- 字段快捷选择 -->
                 <div class="layui-form-item row-fields">
                     <label class="layui-form-label">{:lang('admin/database/select_col')}：</label>
                     <div class="layui-input-block fields" >
 
                     </div>
                 </div>
+                <!-- 字段名输入 -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('admin/database/field')}：</label>
                     <div class="layui-input-block" >
@@ -36,24 +44,27 @@
                     </div>
                 </div>
 
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">{:lang('admin/database/findstr')}：</label>
-                        <div class="layui-input-block" >
-                            <textarea name="findstr" placeholder="" lay-verify="findstr" class="layui-textarea"></textarea>
-                        </div>
+                <!-- 查找内容 -->
+                <div class="layui-form-item">
+                    <label class="layui-form-label">{:lang('admin/database/findstr')}：</label>
+                    <div class="layui-input-block" >
+                        <textarea name="findstr" placeholder="" lay-verify="findstr" class="layui-textarea"></textarea>
                     </div>
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">{:lang('admin/database/tostr')}：</label>
-                        <div class="layui-input-block" >
-                            <textarea name="tostr" placeholder="" lay-verify="tostr" class="layui-textarea"></textarea>
-                        </div>
+                </div>
+                <!-- 替换内容 -->
+                <div class="layui-form-item">
+                    <label class="layui-form-label">{:lang('admin/database/tostr')}：</label>
+                    <div class="layui-input-block" >
+                        <textarea name="tostr" placeholder="" lay-verify="tostr" class="layui-textarea"></textarea>
                     </div>
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">{:lang('admin/database/where')}：</label>
-                        <div class="layui-input-block" >
-                            <input type="text" name="where" placeholder="" value="" class="layui-input">
-                        </div>
+                </div>
+                <!-- 附加条件 -->
+                <div class="layui-form-item">
+                    <label class="layui-form-label">{:lang('admin/database/where')}：</label>
+                    <div class="layui-input-block" >
+                        <input type="text" name="where" placeholder="" value="" class="layui-input">
                     </div>
+                </div>
 
                 <div class="layui-form-item">
 
@@ -61,6 +72,7 @@
             </div>
             </div>
         </div>
+        <!-- 提交按钮 -->
         <div class="layui-form-item center">
             <div class="layui-input-block">
                 <button type="submit" class="layui-btn" lay-submit="" lay-filter="formSubmit">{:lang('btn_save')}</button>
@@ -73,11 +85,11 @@
 {include file="../../../application/admin/view_new/public/foot" /}
 <script type="text/javascript">
     layui.use(['form', 'layer'], function(){
-        // 操作对象
         var form = layui.form
                 , layer = layui.layer,
                 $ = layui.jquery;
 
+        // 表切换时加载字段列表
         form.on('select(table)', function(data){
             $('.fields').html('');
             if(data.value !=''){
@@ -96,8 +108,7 @@
             }
         });
 
-
-        // 验证
+        // 表单验证规则
         form.verify({
             table: function (value) {
                 if (value == "") {
@@ -123,6 +134,7 @@
 
     });
 
+    // 点击字段按钮快速填充字段名
     function setfield(v){
         $('#field').val(v);
     }
