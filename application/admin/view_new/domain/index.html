@@ -1,7 +1,13 @@
+<!--
+多域名配置页
+【控制器】Domain::index()
+【功能】管理多域名站点配置，每个域名可设置独立的站名、模板、SEO等
+【字段】域名、站名、关键词、描述、模板目录、静态目录、广告目录、地图目录
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
     <div class="showpic" style="display:none;"><img class="showpic_img" width="120" height="160" referrerPolicy="no-referrer"></div>
-    
+
     <form class="layui-form layui-form-pane" method="post" action="">
         <input type="hidden" name="vod_id" value="{$info.vod_id}">
 
@@ -13,6 +19,7 @@
 
                 <div class="layui-tab-item layui-show" id="movementTable">
 
+                    <!-- 使用提示和导入导出按钮 -->
                     <blockquote class="layui-elem-quote layui-quote-nm">
                         {:lang('admin/domain/help_tip')}
                         <a class="layui-btn layui-btn-primary" href="{:url('export')}" >{:lang('export')}</a>
@@ -26,11 +33,13 @@
                     $n=0;
                     {/php}
 
+                    <!-- 域名配置列表 -->
                     <div id="domain_list" class="contents">
                         {volist name="$domain_list" id="vo"}
                         {php}
                         $n++;
                         {/php}
+                        <!-- 单个域名配置行 -->
                         <div class="layui-form-item tr" data-i="{$key}">
                         <label class="layui-form-label">{:lang('website')}{$n}：</label>
                             <div class="layui-input-inline w150"><input type="text" name="domain[site_url][]" class="layui-input" placeholder="{:lang('domain')}" value="{$vo.site_url}"></div>&nbsp;
@@ -45,6 +54,7 @@
                         </div>
                         {/volist}
                     </div>
+                    <!-- 添加域名按钮 -->
                     <div class="layui-form-item">
                         <label class=""><button class="layui-btn radius j-player-add" type="button">{:lang('add_group')}</button></label>
                         <div class="layui-input-block">
@@ -56,6 +66,7 @@
             </div>
         </div>
 
+        <!-- 提交按钮 -->
         <div class="layui-form-item center">
             <div class="layui-input-block">
 
@@ -69,16 +80,16 @@
 {include file="../../../application/admin/view_new/public/foot" /}
 
 <script type="text/javascript">
+    // 模板选项HTML (用于动态添加行)
     var template_select='{volist name="templates" id="vo"}<option value="{$vo}">{$vo}</option>{/volist}';
 
     layui.use(['form','layer','upload'], function () {
-        // 操作对象
         var form = layui.form
                 , layer = layui.layer
                 , $ = layui.jquery
             , upload = layui.upload;
 
-
+        // 文件导入上传
         upload.render({
             elem: '.layui-upload'
             ,url: "{:url('domain/import')}"
@@ -96,6 +107,7 @@
             }
         });
 
+        // 添加新域名配置行
         $('.j-player-add').on('click',function(){
             arr_len++;
             var tpl='<div class="layui-form-item" ><label class="layui-form-label">{:lang('website')}：'+arr_len+'</label><div class="layui-input-inline w150"><input type="text" name="domain[site_url][]" class="layui-input" placeholder="{:lang('domain')}" ></div>&nbsp;<div class="layui-input-inline w150"><input type="text" name="domain[site_name][]" class="layui-input" placeholder="{:lang('site_name')}"></div>&nbsp;<div class="layui-input-inline w150"><input type="text" name="domain[site_keywords][]" class="layui-input" placeholder="{:lang('keywords')}" ></div>&nbsp;<div class="layui-input-inline w150"><input type="text" name="domain[site_description][]" class="layui-input" placeholder="{:lang('description')}" ></div>&nbsp;<div class="layui-input-inline w150"><select name="domain[template_dir][]"><option value="no">{:lang('select_template')}.</option>'+template_select+'</select></div><div class="layui-input-inline w150"><input type="text" name="domain[html_dir][]" class="layui-input" placeholder="{:lang('tpl_dir')}" ></div><div class="layui-input-inline w150"><input type="text" name="domain[ads_dir][]" class="layui-input" placeholder="{:lang('ads_dir')}" ></div><div><a href="javascript:void(0)" class="j-editor-remove">{:lang('del')}</a>&nbsp;</div></div>';
@@ -104,11 +116,12 @@
             form.render();
         });
 
+        // 初始化: 如果没有域名配置，自动添加一行
         if(arr_len==0) {
             $('.j-player-add').click();
         }
     });
-    
+
 </script>
 
 </body>
