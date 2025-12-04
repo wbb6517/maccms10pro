@@ -1,0 +1,121 @@
+-- ============================================================
+-- mac_plog 表字段注释 (积分日志表)
+-- ============================================================
+--
+-- 【表说明】
+-- 记录用户积分的所有变动日志，用于追溯积分历史
+-- 包括充值、推广奖励、分销返佣、消费、提现等场景
+--
+-- 【业务场景】
+-- 1. 积分充值：用户购买积分后记录
+-- 2. 注册推广：推广新用户注册获得奖励
+-- 3. 访问推广：推广链接被访问获得奖励
+-- 4. 分销返佣：下级用户消费时上级获得返佣
+-- 5. 积分升级：用户使用积分升级VIP
+-- 6. 积分消费：用户观看/下载付费内容
+-- 7. 积分提现：用户申请积分提现
+--
+-- 【相关文件】
+-- - 后台控制器：application/admin/controller/Plog.php
+-- - 数据模型  ：application/common/model/Plog.php
+-- - 验证器    ：application/common/validate/Plog.php
+-- - 前台用户  ：application/index/controller/User.php
+--
+-- ============================================================
+
+-- 表注释
+ALTER TABLE `mac_plog` COMMENT = '积分日志表 - 记录用户积分的所有变动历史';
+
+-- 字段注释
+ALTER TABLE `mac_plog`
+    MODIFY COLUMN `plog_id` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT '日志ID，主键自增',
+    MODIFY COLUMN `user_id` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '用户ID，关联mac_user表',
+    MODIFY COLUMN `user_id_1` int(10) NOT NULL DEFAULT '0' COMMENT '关联用户ID（分销场景：下级用户ID；推广场景：新用户ID）',
+    MODIFY COLUMN `plog_type` tinyint(1) unsigned NOT NULL DEFAULT '1' COMMENT '积分类型：1=充值 2=注册推广 3=访问推广 4=一级分销 5=二级分销 6=三级分销 7=积分升级 8=积分消费 9=积分提现',
+    MODIFY COLUMN `plog_points` smallint(6) unsigned NOT NULL DEFAULT '0' COMMENT '变动积分数（正数，根据type判断增减）',
+    MODIFY COLUMN `plog_time` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '记录时间戳',
+    MODIFY COLUMN `plog_remarks` varchar(100) NOT NULL DEFAULT '' COMMENT '备注说明（如：充值来源、消费内容等）';
+
+-- ============================================================
+-- 字段详细说明
+-- ============================================================
+--
+-- 【plog_type 积分类型】
+-- ┌──────┬──────────────┬────────┬────────────────────────────┐
+-- │ 类型 │ 说明          │ 变化    │ 触发场景                    │
+-- ├──────┼──────────────┼────────┼────────────────────────────┤
+-- │  1   │ 积分充值      │ +增加  │ 用户购买积分，支付成功后     │
+-- │  2   │ 注册推广      │ +增加  │ 推广的新用户注册成功         │
+-- │  3   │ 访问推广      │ +增加  │ 推广链接被访问               │
+-- │  4   │ 一级分销      │ +增加  │ 直接下级用户消费，获得返佣   │
+-- │  5   │ 二级分销      │ +增加  │ 二级下线用户消费，获得返佣   │
+-- │  6   │ 三级分销      │ +增加  │ 三级下线用户消费，获得返佣   │
+-- │  7   │ 积分升级      │ -减少  │ 使用积分升级VIP等级          │
+-- │  8   │ 积分消费      │ -减少  │ 观看/下载付费内容            │
+-- │  9   │ 积分提现      │ -减少  │ 申请积分提现（审核通过后）   │
+-- └──────┴──────────────┴────────┴────────────────────────────┘
+--
+-- 【积分变化规则】
+-- - 类型 1-6：增加积分（列表显示 +）
+-- - 类型 7-9：减少积分（列表显示 -）
+-- - 实际积分变更在 mac_user.user_points 字段
+-- - 此表仅记录日志，不直接影响用户积分
+--
+-- 【user_id_1 关联用户说明】
+-- - 分销场景（type 4/5/6）：记录触发分销返佣的消费用户ID
+-- - 推广场景（type 2/3）：记录被推广的新用户ID
+-- - 其他场景：默认为0，无关联用户
+--
+-- 【plog_remarks 备注格式示例】
+-- - 积分充值："订单号:xxxxxx"
+-- - 注册推广："推广用户:用户名"
+-- - 分销返佣："消费用户:xxx 消费金额:xx"
+-- - 积分消费："视频名称:xxx"
+-- - 积分提现："提现金额:xx"
+--
+-- ============================================================
+-- 常用查询示例
+-- ============================================================
+--
+-- 查询用户的积分变动历史
+-- SELECT * FROM mac_plog
+-- WHERE user_id = 123
+-- ORDER BY plog_time DESC;
+--
+-- 查询用户的积分充值记录
+-- SELECT * FROM mac_plog
+-- WHERE user_id = 123 AND plog_type = 1
+-- ORDER BY plog_time DESC;
+--
+-- 查询用户的消费记录
+-- SELECT * FROM mac_plog
+-- WHERE user_id = 123 AND plog_type = 8
+-- ORDER BY plog_time DESC;
+--
+-- 查询用户的分销收益（一级+二级+三级）
+-- SELECT SUM(plog_points) as total_earnings
+-- FROM mac_plog
+-- WHERE user_id = 123 AND plog_type IN (4,5,6);
+--
+-- 查询用户的积分增加总数
+-- SELECT SUM(plog_points) as total_add
+-- FROM mac_plog
+-- WHERE user_id = 123 AND plog_type IN (1,2,3,4,5,6);
+--
+-- 查询用户的积分消耗总数
+-- SELECT SUM(plog_points) as total_cost
+-- FROM mac_plog
+-- WHERE user_id = 123 AND plog_type IN (7,8,9);
+--
+-- 统计各类型日志数量
+-- SELECT plog_type, COUNT(*) as total, SUM(plog_points) as points
+-- FROM mac_plog
+-- GROUP BY plog_type;
+--
+-- 查询某时间段的积分变动
+-- SELECT * FROM mac_plog
+-- WHERE plog_time >= UNIX_TIMESTAMP('2024-01-01')
+--   AND plog_time < UNIX_TIMESTAMP('2024-02-01')
+-- ORDER BY plog_time DESC;
+--
+-- ============================================================
