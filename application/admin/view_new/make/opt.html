@@ -1,13 +1,22 @@
+<!--
+静态页面生成选项页
+【控制器】Make::opt()
+【功能】显示静态页面生成选项，包含视频/文章分类、专题、自定义标签页、Sitemap等生成入口
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 
+<!-- 页面主容器 -->
 <div class="page-container p10">
 
-
+    <!-- 生成选项表单 -->
     <form class="layui-form layui-form-pane" method="post" action="" id="form1">
         <div id="movementTable">
+
+            <!-- 视频分类生成区域 -->
             <div class="layui-form-item">
                 <label class="layui-form-label">{:lang('vod')}{:lang('type')}：</label>
                 <div class="flex  max-md:flex-row-reverse">
+                    <!-- 视频分类多选框 -->
                     <div class="layui-input-inline">
                         <select name="vodtype[]" multiple style="width:150px;height:150px;" lay-ignore>
                             {volist name="$vod_type_list" id="vo"}
@@ -15,6 +24,7 @@
                             {/volist}
                         </select>
                     </div>
+                    <!-- 视频生成操作按钮 -->
                     <div class="layui-input-inline w300">
                         <div class="layui-btn-container">
                             <input type="button" value="{:lang('admin/make/select_type')}"
@@ -42,9 +52,12 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 文章分类生成区域 -->
             <div class="layui-form-item">
                 <label class="layui-form-label">{:lang('art')}{:lang('type')}：</label>
                 <div class="flex  max-md:flex-row-reverse">
+                    <!-- 文章分类多选框 -->
                     <div class="layui-input-inline">
                         <select name="arttype[]" multiple style="width:150px;height:150px;" lay-ignore>
                             {volist name="$art_type_list" id="vo"}
@@ -52,6 +65,7 @@
                             {/volist}
                         </select>
                     </div>
+                    <!-- 文章生成操作按钮 -->
                     <div class="layui-input-inline w300">
                         <div class="layui-btn-container">
                             <input type="button" value="{:lang('admin/make/select_type')}"
@@ -79,10 +93,14 @@
                     </div>
                 </div>
             </div>
+
             <hr class="layui-bg-gray">
+
+            <!-- 专题生成区域 -->
             <div class="layui-form-item">
                 <label class="layui-form-label">{:lang('admin/make/topic_list')}：</label>
                 <div class="flex  max-md:flex-row-reverse">
+                    <!-- 专题多选框 -->
                     <div class="layui-input-inline">
                         <select name="topic[]" multiple style="width:150px;height:150px;" lay-ignore>
                             {volist name="$topic_list" id="vo"}
@@ -90,6 +108,7 @@
                             {/volist}
                         </select>
                     </div>
+                    <!-- 专题生成操作按钮 -->
                     <div class="layui-input-inline w300">
                         <div class="layui-btn-container">
                             <input type="button" value="{:lang('admin/make/select_topic')}"
@@ -103,9 +122,12 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 自定义标签页生成区域 -->
             <div class="layui-form-item">
                 <label class="layui-form-label">{:lang('admin/make/label_page')}：</label>
                 <div class="flex  max-md:flex-row-reverse">
+                    <!-- 标签页多选框 (来自label目录) -->
                     <div class="layui-input-inline">
                         <select name="label[]" multiple style="width:150px;height:150px;" lay-ignore>
                             {volist name="$label_list" id="vo"}
@@ -113,6 +135,7 @@
                             {/volist}
                         </select>
                     </div>
+                    <!-- 标签页生成操作按钮 -->
                     <div class="layui-input-inline w300">
                         <div class="layui-btn-container">
                             <input type="button" value="{:lang('make_page')}" class="layui-btn layui-btn-normal"
@@ -125,9 +148,12 @@
             </div>
 
             <hr class="layui-bg-gray">
+
+            <!-- SiteMap/RSS生成区域 -->
             <div class="layui-form-item">
                 <label class="layui-form-label">SiteMap：</label>
                 <div class="wfull">
+                    <!-- 各搜索引擎Sitemap生成按钮 -->
                     <div class="layui-btn-container">
                         <input type="button" value="{:lang('admin/make/rss')}" class="layui-btn layui-btn-normal"
                             onclick="post('ac=rss&ac2=index');">
@@ -146,6 +172,8 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Sitemap页数设置 -->
             <div class="layui-form-item">
                 <label class="layui-form-label">{:lang('admin/make/make_page_num')}：</label>
                 <div class="layui-input-inline w200">
@@ -161,6 +189,7 @@
 {include file="../../../application/admin/view_new/public/foot" /}
 
 <script type="text/javascript">
+    // 生成操作URL基础路径
     var curUrl = "{:url('make')}";
     layui.use(['form', 'layer'], function () {
         var form = layui.form
@@ -169,7 +198,12 @@
 
     });
 
+    /**
+     * 提交生成表单
+     * @param p 额外参数字符串，如 'ac=type&tab=vod'
+     */
     function post(p) {
+        // 设置表单action并提交
         $("#form1").attr("action", curUrl + "?" + p);
         $("#form1").submit();
     }

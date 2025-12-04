@@ -1,14 +1,88 @@
 <?php
+/**
+ * 腾讯云短信扩展 (Tencent Cloud SMS Extension)
+ * ============================================================
+ *
+ * 【文件说明】
+ * 腾讯云短信服务 SDK 封装
+ * 用于发送验证码短信，支持用户注册、密码找回、账号绑定等场景
+ *
+ * 【API 接口】
+ * - 接口地址: https://yun.tim.qq.com/v5/tlssmssvr/sendsms
+ * - 签名算法: SHA256
+ *
+ * 【配置要求】
+ * 在后台 系统设置 → 短信配置 中配置:
+ * - appid  : SDKAppID (腾讯云控制台获取)
+ * - appkey : App Key
+ * - sign   : 短信签名 (需在腾讯云申请)
+ * - tpl_code_xxx : 模板ID (对应不同业务场景)
+ *
+ * 【方法列表】
+ * ┌──────────────────────────────────────┬────────────────────────────────────────┐
+ * │ 方法名                                │ 功能说明                                │
+ * ├──────────────────────────────────────┼────────────────────────────────────────┤
+ * │ __construct()                        │ 构造函数，初始化配置                     │
+ * │ getRandom()                          │ 生成6位随机数                           │
+ * │ calculateSig()                       │ 计算签名 (多手机号)                      │
+ * │ calculateSigForTemplAndPhoneNumbers()│ 计算模板签名 (多手机号)                  │
+ * │ phoneNumbersToArray()                │ 手机号转换为接口格式                     │
+ * │ calculateSigForTempl()               │ 计算模板签名 (单手机号)                  │
+ * │ calculateSigForPuller()              │ 计算拉取签名                            │
+ * │ calculateAuth()                      │ 计算文件上传授权                         │
+ * │ sha1sum()                            │ 计算 SHA1 散列                          │
+ * │ sendCurlPost()                       │ 发送 CURL POST 请求                     │
+ * │ sendWithParam()                      │ 发送模板短信                            │
+ * │ submit()                             │ 发送验证码短信 (对外接口)                │
+ * └──────────────────────────────────────┴────────────────────────────────────────┘
+ *
+ * 【调用位置】
+ * - application/common/model/User.php : sendUserMsg() 方法
+ *
+ * 【使用示例】
+ * $sms = new \app\common\extend\sms\Qcloud();
+ * $result = $sms->submit('13800138000', '123456', 'reg', '注册', '');
+ *
+ * ============================================================
+ */
 namespace app\common\extend\sms;
 
 class Qcloud {
 
+    /**
+     * 扩展名称
+     * @var string
+     */
     public $name = '腾讯云短信';
+
+    /**
+     * 版本号
+     * @var string
+     */
     public $ver = '2.0';
+
+    /**
+     * API 请求地址
+     * @var string
+     */
     private $url;
+
+    /**
+     * SDKAppID
+     * @var string
+     */
     private $appid;
+
+    /**
+     * App Key
+     * @var string
+     */
     private $appkey;
 
+    /**
+     * 构造函数
+     * 初始化 API 地址和密钥配置
+     */
     public function __construct()
     {
         $this->url = "https://yun.tim.qq.com/v5/tlssmssvr/sendsms";
@@ -67,6 +141,13 @@ class Qcloud {
             ."&time=".$curTime."&mobile=".$phoneNumbersString);
     }
 
+    /**
+     * 将手机号数组转换为 API 请求格式
+     *
+     * @param string $nationCode   国家码 (如 86)
+     * @param array  $phoneNumbers 手机号数组
+     * @return array 格式化后的手机号对象数组
+     */
     public function phoneNumbersToArray($nationCode, $phoneNumbers)
     {
         $i = 0;
@@ -139,11 +220,11 @@ class Qcloud {
     }
 
     /**
-     * 发送请求
+     * 发送 CURL POST 请求
      *
-     * @param string $url      请求地址
-     * @param array  $dataObj  请求内容
-     * @return string 应答json字符串
+     * @param string $url     请求地址
+     * @param object $dataObj 请求数据对象
+     * @return string JSON 格式的响应字符串
      */
     public function sendCurlPost($url, $dataObj)
     {
@@ -176,6 +257,18 @@ class Qcloud {
         return $result;
     }
 
+    /**
+     * 发送带参数的模板短信
+     *
+     * @param string $nationCode  国家码 (如 86)
+     * @param string $phoneNumber 手机号
+     * @param int    $templId     模板ID
+     * @param array  $params      模板参数数组
+     * @param string $sign        短信签名
+     * @param string $extend      扩展码 (可选)
+     * @param string $ext         用户自定义数据 (可选)
+     * @return string JSON 格式的响应
+     */
     public function sendWithParam($nationCode, $phoneNumber, $templId = 0, $params,
                                   $sign = "", $extend = "", $ext = "")
     {
@@ -201,6 +294,28 @@ class Qcloud {
         return $this->sendCurlPost($wholeUrl, $data);
     }
 
+    /**
+     * ============================================================
+     * 发送验证码短信 (对外接口)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 调用腾讯云短信 API 发送验证码
+     * 根据 type_flag 自动获取对应的模板ID
+     *
+     * 【参数说明】
+     * - type_flag 对应配置: sms.tpl_code_{type_flag}
+     *   - reg  : 注册验证码模板
+     *   - bind : 绑定验证码模板
+     *   - find : 找回密码模板
+     *
+     * @param string $phone     手机号码
+     * @param string $code      验证码
+     * @param string $type_flag 类型标识 (reg/bind/find)
+     * @param string $type_des  类型描述 (用于日志)
+     * @param string $text      短信内容 (腾讯云模板方式不使用)
+     * @return array ['code'=>1,'msg'=>'ok'] 成功 / ['code'=>101,'msg'=>'错误信息']
+     */
     public function submit($phone,$code,$type_flag,$type_des,$text)
     {
         if(empty($phone) || empty($code) || empty($type_flag)){

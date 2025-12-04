@@ -1,9 +1,60 @@
 <?php
+/**
+ * 阿里云短信扩展 (Aliyun SMS Extension)
+ * ============================================================
+ *
+ * 【文件说明】
+ * 阿里云短信服务 SDK 封装
+ * 用于发送验证码短信，支持用户注册、密码找回、账号绑定等场景
+ *
+ * 【API 接口】
+ * - 接口域名: dysmsapi.aliyuncs.com
+ * - API版本: 2017-05-25
+ * - 签名算法: HMAC-SHA1
+ *
+ * 【配置要求】
+ * 在后台 系统设置 → 短信配置 中配置:
+ * - appid  : AccessKeyId (阿里云控制台获取)
+ * - appkey : AccessKeySecret
+ * - sign   : 短信签名 (需在阿里云申请)
+ * - tpl_code_xxx : 模板ID (对应不同业务场景)
+ *
+ * 【方法列表】
+ * ┌─────────────────┬─────────────────────────────────────────────────┐
+ * │ 方法名           │ 功能说明                                         │
+ * ├─────────────────┼─────────────────────────────────────────────────┤
+ * │ request()       │ 生成签名并发起 API 请求                           │
+ * │ encode()        │ URL 编码 (阿里云规范)                             │
+ * │ fetchContent()  │ 执行 CURL 请求                                   │
+ * │ submit()        │ 发送验证码短信 (对外接口)                          │
+ * └─────────────────┴─────────────────────────────────────────────────┘
+ *
+ * 【调用位置】
+ * - application/common/model/User.php : sendUserMsg() 方法
+ *
+ * 【使用示例】
+ * $sms = new \app\common\extend\sms\Aliyun();
+ * $result = $sms->submit('13800138000', '123456', 'reg', '注册', '');
+ *
+ * 【相关文档】
+ * - https://help.aliyun.com/document_detail/101414.html
+ *
+ * ============================================================
+ */
 namespace app\common\extend\sms;
 
 class Aliyun {
 
+    /**
+     * 扩展名称
+     * @var string
+     */
     public $name = '阿里云短信';
+
+    /**
+     * 版本号
+     * @var string
+     */
     public $ver = '2.0';
 
     /**
@@ -49,6 +100,16 @@ class Aliyun {
         }
     }
 
+    /**
+     * URL 编码 (阿里云规范)
+     * 按照阿里云 API 签名规范进行 URL 编码
+     * - 空格编码为 %20 (而非 +)
+     * - 星号编码为 %2A
+     * - 波浪号不编码
+     *
+     * @param string $str 待编码字符串
+     * @return string 编码后的字符串
+     */
     private function encode($str)
     {
         $res = urlencode($str);
@@ -58,6 +119,15 @@ class Aliyun {
         return $res;
     }
 
+    /**
+     * 执行 CURL HTTP 请求
+     *
+     * @param string $url    请求地址
+     * @param string $method 请求方法 (GET/POST)
+     * @param string $body   请求体内容
+     * @return string 响应内容
+     * @throws \Exception CURL 执行失败时抛出异常
+     */
     private function fetchContent($url, $method, $body) {
         $ch = curl_init();
 
@@ -92,6 +162,28 @@ class Aliyun {
         return $rtn;
     }
 
+    /**
+     * ============================================================
+     * 发送验证码短信 (对外接口)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 调用阿里云短信 API 发送验证码
+     * 根据 type_flag 自动获取对应的模板ID
+     *
+     * 【参数说明】
+     * - type_flag 对应配置: sms.tpl_code_{type_flag}
+     *   - reg  : 注册验证码模板
+     *   - bind : 绑定验证码模板
+     *   - find : 找回密码模板
+     *
+     * @param string $phone     手机号码
+     * @param string $code      验证码
+     * @param string $type_flag 类型标识 (reg/bind/find)
+     * @param string $type_des  类型描述 (用于日志)
+     * @param string $text      短信内容 (阿里云模板方式不使用)
+     * @return array ['code'=>1,'msg'=>'ok'] 成功 / ['code'=>101,'msg'=>'错误信息']
+     */
     public function submit($phone,$code,$type_flag,$type_des,$text)
     {
         if(empty($phone) || empty($code) || empty($type_flag)){
