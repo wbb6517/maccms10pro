@@ -1,8 +1,16 @@
+<!--
+图片同步设置页
+【控制器】Images::opt()
+【功能】配置远程图片同步选项：范围、筛选条件、字段、每次数量
+【表单提交】POST → Images::sync() 执行同步
+-->
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
 
     <form class="layui-form " method="post" action="{:url('sync')}" id="movementTable">
         <input type="hidden" name="tab" value="{$tab}">
+
+        <!-- 同步范围：全部/指定日期 -->
         <fieldset class="layui-elem-field">
             <legend>{:lang('admin/images/sync_range')}</legend>
             <div class="layui-field-box">
@@ -20,6 +28,7 @@
             </div>
         </fieldset>
 
+        <!-- 同步选项：筛选条件(全部/排除错误/仅错误) -->
         <fieldset class="layui-elem-field">
             <legend>{:lang('admin/images/sync_option')}</legend>
             <div class="layui-field-box">
@@ -40,6 +49,7 @@
             </div>
         </fieldset>
 
+        <!-- 同步字段：封面图/内容图 -->
         <fieldset class="layui-elem-field">
             <legend>{:lang('admin/images/opt/tip1')}</legend>
             <div class="layui-field-box">
@@ -54,6 +64,7 @@
             </div>
         </fieldset>
 
+        <!-- 每次处理数量 -->
         <fieldset class="layui-elem-field">
             <legend>{:lang('admin/images/opt/tip2')}</legend>
             <div class="layui-field-box">
@@ -65,6 +76,7 @@
             </div>
         </fieldset>
 
+        <!-- 提交按钮 -->
         <div class="layui-form-item">
             <button type="submit" class="layui-btn btn_submit">{:lang('start_exec')}</button>
         </div>
