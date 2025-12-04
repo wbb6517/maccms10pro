@@ -1,4 +1,95 @@
 <?php
+/**
+ * 文章模型 (Article Model)
+ * ============================================================
+ *
+ * 【文件说明】
+ * 文章/资讯数据的核心业务模型
+ * 处理文章的增删改查、缓存管理、分页列表等操作
+ *
+ * 【数据表】
+ * mac_art - 文章数据表
+ *
+ * 【数据表字段说明】
+ * ┌──────────────────────┬─────────────────────────────────────────┐
+ * │ 字段名                │ 说明                                     │
+ * ├──────────────────────┼─────────────────────────────────────────┤
+ * │ art_id               │ 文章ID (主键,自增)                        │
+ * │ type_id              │ 分类ID (外键→mac_type)                    │
+ * │ type_id_1            │ 一级分类ID                               │
+ * │ group_id             │ 用户组ID                                 │
+ * │ art_name             │ 文章标题                                 │
+ * │ art_sub              │ 副标题                                   │
+ * │ art_en               │ 英文名/拼音 (用于URL)                     │
+ * │ art_status           │ 审核状态: 0=未审核, 1=已审核               │
+ * │ art_lock             │ 锁定状态: 0=未锁定, 1=已锁定               │
+ * │ art_letter           │ 首字母 (A-Z)                             │
+ * │ art_color            │ 标题颜色                                 │
+ * │ art_from             │ 来源                                     │
+ * │ art_author           │ 作者                                     │
+ * │ art_tag              │ 标签 (逗号分隔)                          │
+ * │ art_class            │ 扩展分类                                 │
+ * │ art_pic              │ 封面图片                                 │
+ * │ art_pic_thumb        │ 缩略图                                   │
+ * │ art_pic_slide        │ 幻灯片图                                 │
+ * │ art_pic_screenshot   │ 截图列表 (#分隔)                         │
+ * │ art_blurb            │ 简介                                     │
+ * │ art_remarks          │ 备注                                     │
+ * │ art_jumpurl          │ 跳转URL                                  │
+ * │ art_tpl              │ 详情页模板                               │
+ * │ art_level            │ 推荐等级 (0-9)                           │
+ * │ art_hits             │ 总点击量                                 │
+ * │ art_hits_day         │ 日点击量                                 │
+ * │ art_hits_week        │ 周点击量                                 │
+ * │ art_hits_month       │ 月点击量                                 │
+ * │ art_time             │ 更新时间戳                               │
+ * │ art_time_add         │ 添加时间戳                               │
+ * │ art_time_hits        │ 最后点击时间戳                            │
+ * │ art_time_make        │ 静态页生成时间戳                          │
+ * │ art_score            │ 评分                                     │
+ * │ art_score_all        │ 评分总分                                 │
+ * │ art_score_num        │ 评分人数                                 │
+ * │ art_up               │ 顶数                                     │
+ * │ art_down             │ 踩数                                     │
+ * │ art_title            │ 分页标题 ($$$分隔)                        │
+ * │ art_note             │ 分页描述 ($$$分隔)                        │
+ * │ art_content          │ 文章内容 ($$$分隔支持多页)                 │
+ * │ art_rel_art          │ 关联文章ID                               │
+ * │ art_rel_vod          │ 关联视频ID                               │
+ * │ art_pwd              │ 访问密码                                 │
+ * │ art_pwd_url          │ 密码验证跳转URL                          │
+ * └──────────────────────┴─────────────────────────────────────────┘
+ *
+ * 【方法列表】
+ * ┌───────────────────────┬─────────────────────────────────────────┐
+ * │ 方法名                 │ 功能说明                                 │
+ * ├───────────────────────┼─────────────────────────────────────────┤
+ * │ getArtStatusTextAttr()│ 获取状态文本 (获取器)                     │
+ * │ getArtContentTextAttr()│ 获取内容数组 (获取器)                    │
+ * │ countData()           │ 统计数据总数                             │
+ * │ listData()            │ 分页列表查询 (后台用)                     │
+ * │ listRepeatData()      │ 重复数据列表查询                         │
+ * │ listCacheData()       │ 带缓存的列表查询 (前台标签用)              │
+ * │ infoData()            │ 获取文章详情                             │
+ * │ saveData()            │ 保存文章 (新增/更新)                      │
+ * │ delData()             │ 删除文章 (含图片清理)                     │
+ * │ fieldData()           │ 批量更新字段                             │
+ * │ updateToday()         │ 获取今日更新的ID列表                      │
+ * └───────────────────────┴─────────────────────────────────────────┘
+ *
+ * 【缓存键说明】
+ * - art_detail_{id}    : 按ID缓存的文章详情
+ * - art_detail_{en}    : 按英文名缓存的文章详情
+ * - art_listcache_*    : 列表缓存 (md5查询条件)
+ *
+ * 【相关文件】
+ * - application/admin/controller/Art.php : 后台控制器
+ * - application/index/controller/Art.php : 前台控制器
+ * - application/admin/view/art/          : 视图文件
+ * - application/common/validate/Art.php  : 验证器
+ *
+ * ============================================================
+ */
 namespace app\common\model;
 use think\Db;
 use think\Cache;
@@ -17,24 +108,65 @@ class Art extends Base {
     protected $insert     = [];
     protected $update     = [];
 
+    /**
+     * 获取审核状态文本 (获取器)
+     * 自动转换 art_status 数字为对应文本
+     *
+     * @param mixed $val   原始值
+     * @param array $data  整行数据
+     * @return string 状态文本 (禁用/启用)
+     */
     public function getArtStatusTextAttr($val,$data)
     {
         $arr = [0=>lang('disable'),1=>lang('enable')];
         return $arr[$data['art_status']];
     }
 
+    /**
+     * 获取内容数组 (获取器)
+     * 将 $$$ 分隔的内容转为数组 (多页文章)
+     *
+     * @param mixed $val   原始值
+     * @param array $data  整行数据
+     * @return array 内容数组
+     */
     public function getArtContentTextAttr($val,$data)
     {
         $arr = explode('$$$',$data['art_content']);
         return $arr;
     }
 
+    /**
+     * 统计数据总数
+     *
+     * @param array $where 查询条件
+     * @return int 记录总数
+     */
     public function countData($where)
     {
         $total = $this->where($where)->count();
         return $total;
     }
 
+    /**
+     * ============================================================
+     * 分页列表查询 (后台用)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 查询文章列表数据，支持分页、排序、字段选择
+     * 自动关联分类和用户组信息
+     *
+     * @param array  $where     查询条件数组
+     * @param string $order     排序方式 (如: art_time desc)
+     * @param int    $page      当前页码
+     * @param int    $limit     每页条数
+     * @param int    $start     起始偏移量
+     * @param string $field     查询字段
+     * @param int    $addition  是否附加关联数据 (1=是)
+     * @param int    $totalshow 是否统计总数 (1=是)
+     * @return array ['code','msg','page','pagecount','limit','total','list']
+     */
     public function listData($where,$order,$page=1,$limit=20,$start=0,$field='*',$addition=1,$totalshow=1)
     {
         $page = $page > 0 ? (int)$page : 1;
@@ -75,6 +207,27 @@ class Art extends Base {
         return ['code'=>1,'msg'=>lang('data_list'),'page'=>$page,'pagecount'=>ceil($total/$limit),'limit'=>$limit,'total'=>$total,'list'=>$list];
     }
 
+    /**
+     * ============================================================
+     * 重复数据列表查询
+     * ============================================================
+     *
+     * 【功能说明】
+     * 查询与临时表 mac_tmpart 关联的重复数据
+     * 用于后台"查找重复数据"功能
+     *
+     * 【临时表结构】
+     * mac_tmpart: id1(最小ID), name1(文章名称)
+     *
+     * @param array  $where    查询条件
+     * @param string $order    排序方式
+     * @param int    $page     当前页码
+     * @param int    $limit    每页条数
+     * @param int    $start    起始偏移
+     * @param string $field    查询字段
+     * @param int    $addition 是否附加关联数据
+     * @return array 分页数据结果
+     */
     public function listRepeatData($where,$order,$page=1,$limit=20,$start=0,$field='*',$addition=1)
     {
         $page = $page > 0 ? (int)$page : 1;
@@ -121,6 +274,43 @@ class Art extends Base {
         return ['code'=>1,'msg'=>lang('data_list'),'page'=>$page,'pagecount'=>ceil($total/$limit),'limit'=>$limit,'total'=>$total,'list'=>$list];
     }
 
+    /**
+     * ============================================================
+     * 带缓存的列表查询 (前台模板标签用)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 供前台模板标签 {maccms:art} 调用
+     * 支持多种筛选条件、排序方式、分页显示
+     * 自动处理缓存读写
+     *
+     * 【支持的筛选参数】
+     * - type      : 分类ID (支持多个,逗号分隔)
+     * - ids       : 指定文章ID列表
+     * - level     : 推荐等级 (1-9或all)
+     * - wd        : 搜索关键词
+     * - tag       : 标签筛选
+     * - class     : 扩展分类
+     * - letter    : 首字母筛选
+     * - time      : 更新时间筛选
+     * - timeadd   : 添加时间筛选
+     * - hits      : 点击量筛选
+     * - not       : 排除的ID列表
+     * - typenot   : 排除的分类ID
+     *
+     * 【排序参数】
+     * - order : 排序方向 (asc/desc)
+     * - by    : 排序字段 (id/time/time_add/score/hits/hits_day/hits_week/hits_month/up/down/level/rnd)
+     *
+     * 【分页参数】
+     * - paging  : 是否分页 (yes/no)
+     * - pageurl : 分页URL模板
+     * - num     : 每页条数
+     * - start   : 起始位置
+     *
+     * @param array|string $lp 查询参数数组或JSON字符串
+     * @return array 包含列表数据和分页信息
+     */
     public function listCacheData($lp)
     {
         if (!is_array($lp)) {
@@ -401,6 +591,26 @@ class Art extends Base {
         return $res;
     }
 
+    /**
+     * ============================================================
+     * 获取文章详情
+     * ============================================================
+     *
+     * 【功能说明】
+     * 根据条件获取单篇文章的完整信息
+     * 支持缓存机制，自动关联分类和用户组
+     *
+     * 【数据处理】
+     * 1. 将 $$$ 分隔的内容转为分页列表
+     * 2. 将截图字符串转为数组
+     * 3. 关联分类信息 (type, type_1)
+     * 4. 关联用户组信息 (group)
+     *
+     * @param array  $where 查询条件 (支持 art_id 或 art_en)
+     * @param string $field 查询字段
+     * @param int    $cache 是否使用缓存 (0=否, 1=是)
+     * @return array ['code','msg','info']
+     */
     public function infoData($where,$field='*',$cache=0)
     {
         if(empty($where) || !is_array($where)){
@@ -447,6 +657,29 @@ class Art extends Base {
         return ['code'=>1,'msg'=>lang('obtain_ok'),'info'=>$info];
     }
 
+    /**
+     * ============================================================
+     * 保存文章 (新增/更新)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 保存文章数据，支持新增和更新操作
+     * 自动处理拼音、首字母、缓存清理、XSS过滤等
+     *
+     * 【自动处理】
+     * 1. 验证数据合法性
+     * 2. 清除相关缓存
+     * 3. 自动生成英文名(拼音)和首字母
+     * 4. 处理截图格式 (换行转#)
+     * 5. 处理多页内容 (数组转$$$字符串)
+     * 6. 提取内容中的图片作为封面
+     * 7. 自动生成简介 (截取内容前100字)
+     * 8. 自动提取标签
+     * 9. XSS过滤敏感字段
+     *
+     * @param array $data 文章数据
+     * @return array ['code','msg']
+     */
     public function saveData($data)
     {
         $validate = \think\Loader::validate('Art');
@@ -552,6 +785,28 @@ class Art extends Base {
         return ['code'=>1,'msg'=>lang('save_ok')];
     }
 
+    /**
+     * ============================================================
+     * 删除文章 (含图片清理)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 删除指定条件的文章数据
+     * 同时清理关联的图片文件和静态页面
+     *
+     * 【清理内容】
+     * 1. 封面图片 (art_pic)
+     * 2. 缩略图 (art_pic_thumb)
+     * 3. 幻灯片图 (art_pic_slide)
+     * 4. 静态详情页 (如果开启)
+     *
+     * 【安全检查】
+     * 只删除 ./upload 目录下的本地图片
+     * 不删除远程图片URL
+     *
+     * @param array $where 删除条件
+     * @return array ['code','msg']
+     */
     public function delData($where)
     {
         $list = $this->listData($where,'',1,9999);
@@ -588,6 +843,26 @@ class Art extends Base {
         return ['code'=>1,'msg'=>lang('del_ok')];
     }
 
+    /**
+     * ============================================================
+     * 批量更新字段
+     * ============================================================
+     *
+     * 【功能说明】
+     * 批量更新指定条件的文章字段
+     * 更新后自动清除相关缓存
+     *
+     * 【使用场景】
+     * - 批量修改状态 (art_status)
+     * - 批量修改等级 (art_level)
+     * - 批量修改锁定 (art_lock)
+     * - 批量修改点击量 (art_hits)
+     * - 批量修改分类 (type_id)
+     *
+     * @param array $where  更新条件
+     * @param array $update 更新数据
+     * @return array ['code','msg']
+     */
     public function fieldData($where,$update)
     {
         if(!is_array($update)){
@@ -609,6 +884,18 @@ class Art extends Base {
         return ['code'=>1,'msg'=>lang('set_ok')];
     }
 
+    /**
+     * ============================================================
+     * 获取今日更新的ID列表
+     * ============================================================
+     *
+     * 【功能说明】
+     * 获取今日更新的文章ID或分类ID列表
+     * 用于首页仪表盘显示今日数据统计
+     *
+     * @param string $flag 返回类型: 'art'=文章ID, 'type'=分类ID
+     * @return array ['code','msg','data'] data为逗号分隔的ID字符串
+     */
     public function updateToday($flag='art')
     {
         $today = strtotime(date('Y-m-d'));

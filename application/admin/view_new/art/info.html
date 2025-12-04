@@ -1,13 +1,86 @@
+<!--
+文章编辑页 (Article Edit Page)
+============================================================
+
+【页面说明】
+后台文章新增/编辑页面
+支持富文本编辑、多页内容、图片上传等功能
+
+【控制器方法】
+Art::info() - application/admin/controller/Art.php
+
+【访问路径】
+GET  admin.php/art/info      → 新增文章
+GET  admin.php/art/info?id=1 → 编辑文章
+POST admin.php/art/info      → 保存文章
+
+【模板变量】
+$info          - 文章详情数据 (编辑时)
+$art_page_list - 分页内容列表 (多页文章)
+$type_tree     - 分类树 (用于下拉选择)
+
+【表单字段说明】
+┌────────────────────┬─────────────────────────────────────────┐
+│ 字段名              │ 说明                                     │
+├────────────────────┼─────────────────────────────────────────┤
+│ art_id             │ 文章ID (隐藏字段,编辑时存在)              │
+│ type_id            │ 分类ID                                  │
+│ art_level          │ 推荐等级 (0-9)                           │
+│ art_status         │ 审核状态 (0=未审核, 1=已审核)              │
+│ art_lock           │ 锁定状态                                 │
+│ art_name           │ 文章标题                                 │
+│ art_sub            │ 副标题                                   │
+│ art_en             │ 英文名/拼音                              │
+│ art_letter         │ 首字母                                   │
+│ art_color          │ 标题颜色                                 │
+│ art_tag            │ 标签 (逗号分隔)                          │
+│ art_remarks        │ 备注                                     │
+│ art_rel_vod        │ 关联视频ID                               │
+│ art_rel_art        │ 关联文章ID                               │
+│ art_class          │ 扩展分类                                 │
+│ art_pic            │ 封面图片                                 │
+│ art_pic_thumb      │ 缩略图                                   │
+│ art_pic_slide      │ 幻灯片图                                 │
+│ art_pic_screenshot │ 截图列表                                 │
+│ art_blurb          │ 简介                                     │
+│ art_title[]        │ 分页标题 (数组)                          │
+│ art_note[]         │ 分页备注 (数组)                          │
+│ art_content[]      │ 分页内容 (数组,富文本)                    │
+└────────────────────┴─────────────────────────────────────────┘
+
+【Tab页签】
+- 基本信息: 分类、状态、标题、图片、内容等
+- 其他信息: 点击量、评分、积分、作者、跳转等
+
+【JS功能】
+- jscolor: 颜色选择器
+- UEditor: 富文本编辑器 (支持多实例)
+- layui.upload: 图片上传
+- 多页内容: 添加/删除/上移/下移
+- 截图管理: 多图上传/预览/删除
+- 扩展字段: 按分类动态加载
+
+============================================================
+-->
+
+<!-- 引入公共头部 -->
 {include file="../../../application/admin/view_new/public/head" /}
+<!-- 颜色选择器JS -->
 <script type="text/javascript" src="__STATIC__/js/jquery.jscolor.js"></script>
+<!-- 富文本编辑器 -->
 {include file="../../../application/admin/view_new/public/editor" flag="art_editor"/}
 
+<!-- 页面主容器 -->
 <div class="page-container p10">
+    <!-- 图片预览浮层 -->
     <div class="showpic" style="display:none;"><img class="showpic_img" width="120" height="160" referrerPolicy="no-referrer"></div>
-    
+
+    <!-- ==================== 编辑表单 ==================== -->
     <form class="layui-form layui-form-pane" method="post" action="">
+        <!-- 文章ID (编辑时存在) -->
         <input type="hidden" name="art_id" value="{$info.art_id}">
 
+        <!-- Tab页签容器 -->
         <div class="layui-tab">
             <ul class="layui-tab-title ">
                 <li class="layui-this">{:lang('base_info')}</a></li>
@@ -15,10 +88,13 @@
             </ul>
             <div class="layui-tab-content">
 
+                <!-- ==================== Tab1: 基本信息 ==================== -->
                 <div class="layui-tab-item layui-show" id="movementTable">
-                    
+
+                <!-- 参数行: 分类/等级/状态/锁定/更新时间 -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('param')}：</label>
+                    <!-- 分类选择 -->
                     <div class="layui-input-inline w150">
                             <select name="type_id" lay-filter="type_id">
                                 <option value="">{:lang('select_type')}</option>
@@ -32,6 +108,7 @@
                                 {/volist}
                             </select>
                     </div>
+                    <!-- 推荐等级 -->
                     <div class="layui-input-inline w150">
                             <select name="art_level">
                                 <option value="0">{:lang('select_level')}</option>
@@ -47,12 +124,14 @@
 
                             </select>
                     </div>
+                    <!-- 审核状态 -->
                     <div class="layui-input-inline w150">
                             <select name="art_status">
                                 <option value="1" >{:lang('reviewed')}</option>
                                 <option value="0" {if condition="$info.art_status eq '0'"}selected{/if}>{:lang('reviewed_not')}</option>
                             </select>
                     </div>
+                    <!-- 锁定状态 -->
                     <div class="layui-input-inline w150">
                         <select name="art_lock">
                             <option value="0">{:lang('unlock')}</option>
@@ -60,11 +139,13 @@
                         </select>
                     </div>
 
+                    <!-- 更新时间复选框 -->
                     <div class="layui-input-inline">
                         <input type="checkbox" name="uptime" title="{:lang('update_time')}" value="1" checked class="layui-checkbox checkbox-ids" lay-skin="primary">
                     </div>
                 </div>
 
+                <!-- 标题行: 文章名称/副标题 -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('name')}：</label>
                     <div class="layui-input-inline w500">
@@ -77,6 +158,7 @@
 
                 </div>
 
+                <!-- 英文名行: 英文名/首字母/颜色 -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('en')}：</label>
                     <div class="layui-input-inline w500">
@@ -92,6 +174,7 @@
                     </div>
                 </div>
 
+                <!-- TAG标签行 -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">TAG：</label>
                     <div class="layui-input-inline w500">
@@ -101,6 +184,8 @@
                         <input type="checkbox" name="uptag" title="{:lang('auto_make')}" value="1" class="layui-checkbox checkbox-ids" lay-skin="primary">
                     </div>
                 </div>
+
+                    <!-- 备注行 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('remarks')}：</label>
                         <div class="layui-input-inline w500">
@@ -108,7 +193,7 @@
                         </div>
                     </div>
 
-
+                    <!-- 关联视频行 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('rel_vod')}：</label>
                         <div class="layui-input-inline w500">
@@ -118,6 +203,8 @@
                             <a class="layui-btn j-iframe" data-href="{:url('vod/data')}?select=1&input=art_rel_vod" href="javascript:;" title="{:lang('search_data')}">{:lang('search_data')}</a>
                         </div>
                     </div>
+
+                    <!-- 关联文章行 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('rel_art')}：</label>
                         <div class="layui-input-inline w500">
@@ -128,6 +215,7 @@
                         </div>
                     </div>
 
+                    <!-- 扩展分类行 (动态加载) -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('class')}：</label>
                         <div class="layui-input-inline w500">
@@ -138,6 +226,7 @@
                         </div>
                     </div>
 
+                <!-- 封面图片行 -->
                 <div class="layui-form-item">
                     <label class="layui-form-label">{:lang('pic')}：</label>
                     <div class="layui-input-inline w500 upload">
@@ -147,6 +236,8 @@
                         <button type="button" class="layui-btn layui-upload" lay-data="{data:{thumb:1,thumb_class:'upload-thumb'}}" id="upload1">{:lang('upload_pic')}</button>
                     </div>
                 </div>
+
+                    <!-- 缩略图行 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('pic_thumb')}：</label>
                         <div class="layui-input-inline w500 upload">
@@ -156,6 +247,8 @@
                             <button type="button" class="layui-btn layui-upload" lay-data="{data:{thumb:0,thumb_class:'upload-thumb'}}" id="upload2">{:lang('upload_pic')}</button>
                         </div>
                     </div>
+
+                    <!-- 幻灯片图行 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('pic_slide')}：</label>
                         <div class="layui-input-inline w500 upload">
@@ -165,6 +258,8 @@
                             <button type="button" class="layui-btn layui-upload" lay-data="{data:{thumb:0,thumb_class:'upload-thumb'}}" id="upload3">{:lang('upload_pic')}</button>
                         </div>
                     </div>
+
+                    <!-- 截图上传区域 -->
                     <div class="layui-form-item">
                         <label class="layui-form-label ">{:lang('pic_screenshot')}：</label>
                         <div class="layui-input-inline w400 ">
@@ -173,6 +268,7 @@
                             </div>
                         </div>
                     </div>
+                    <!-- 截图文本域和预览 -->
                     <div class="layui-form-item">
                         <div class="layui-input-block">
                             <textarea class="layui-textarea" id="art_pic_screenshot" name="art_pic_screenshot" placeholder="{:lang('screenshot_tip')}" type="text/plain" style="width:100%;height:150px;">{$info.art_pic_screenshot|mac_str_correct=###,'#',chr(13)}</textarea>
@@ -188,6 +284,8 @@
                             </div>
                         </div>
                     </div>
+
+                <!-- 简介行 -->
                 <div class="layui-form-item">
                         <label class="layui-form-label">{:lang('blurb')}：</label>
                     <div class="layui-input-block">
@@ -195,11 +293,13 @@
                     </div>
                 </div>
 
+                    <!-- 编辑器数组初始化 -->
                     <script>
                         var ueArray=[];
                         var content_arr_len = {$art_page_list|count};
                     </script>
 
+                <!-- -------------------- 多页内容区域 -------------------- -->
                 <div id="artlist" class="contents">
                     {volist name="$art_page_list" id="vo"}
                     <div class="layui-form-item" data-i="{$key}">
@@ -214,17 +314,19 @@
                     {/volist}
                 </div>
 
-
+                    <!-- 添加分页按钮 -->
                     <div class="layui-form-item">
                         <label class=""><button class="layui-btn radius j-editor-add" type="button">{:lang('page_add')}</button></label>
                         <div class="layui-input-block">
 
                         </div>
                     </div>
-                    
+
                 </div>
 
+                <!-- ==================== Tab2: 其他信息 ==================== -->
                 <div class="layui-tab-item" id="movementTable">
+                        <!-- 顶/踩行 -->
                         <div class="layui-form-item">
                             <label class="layui-form-label">{:lang('up')}：</label>
                             <div class="layui-input-inline ">
@@ -237,6 +339,7 @@
                             <button class="layui-btn" type="button" id="btn_rnd">{:lang('rnd_make')}</button>
                         </div>
 
+                        <!-- 点击量行 -->
                         <div class="layui-form-item">
                             <label class="layui-form-label">{:lang('hits')}：</label>
                             <div class="layui-input-inline ">
@@ -248,6 +351,7 @@
                             </div>
                         </div>
 
+                        <!-- 周/日点击量行 -->
                         <div class="layui-form-item">
                             <label class="layui-form-label">{:lang('hits_week')}：</label>
                             <div class="layui-input-inline ">
@@ -259,7 +363,7 @@
                             </div>
                         </div>
 
-
+                        <!-- 评分行 -->
                         <div class="layui-form-item">
                             <label class="layui-form-label">{:lang('score')}：</label>
                             <div class="layui-input-inline ">
@@ -275,6 +379,7 @@
                             </div>
                         </div>
 
+                        <!-- 积分/模板行 -->
                         <div class="layui-form-item">
                             <label class="layui-form-label">{:lang('points_all')}：</label>
                             <div class="layui-input-inline ">
@@ -290,6 +395,7 @@
                             </div>
                         </div>
 
+                        <!-- 作者/来源/跳转行 -->
                         <div class="layui-form-item">
                             <label class="layui-form-label">{:lang('author')}：</label>
                             <div class="layui-input-inline ">
@@ -305,6 +411,7 @@
                             </div>
                         </div>
 
+                        <!-- 访问密码行 -->
                         <div class="layui-form-item">
                             <label class="layui-form-label">{:lang('access_pwd')}：</label>
                             <div class="layui-input-inline ">
@@ -321,6 +428,7 @@
             </div>
         </div>
 
+                <!-- 提交按钮 -->
                 <div class="layui-form-item center">
                     <div class="layui-input-block">
                         <button type="submit" class="layui-btn" lay-submit="" lay-filter="formSubmit" data-child="">{:lang('btn_save')}</button>
@@ -330,9 +438,13 @@
     </form>
 
 </div>
+
+<!-- 引入公共底部 -->
 {include file="../../../application/admin/view_new/public/foot" /}
 
+<!-- ==================== 页面脚本 ==================== -->
 <script type="text/javascript">
+    // 图片上传配置
     var UPLOAD_IMG_KEY="{$GLOBALS['config']['upload']['img_key']}";UPLOAD_IMG_API="{$GLOBALS['config']['upload']['img_api']}";
 
     layui.use(['form','upload', 'layer'], function () {
@@ -342,7 +454,7 @@
                 , $ = layui.jquery
                 , upload = layui.upload;;
 
-        // 验证
+        // 表单验证规则
         form.verify({
             art_name: function (value) {
                 if (value == "") {
@@ -351,6 +463,7 @@
             }
         });
 
+        // 扩展字段点击事件 (快速填充)
         $(document).on("click", ".extend", function(){
             $id = $(this).attr('data-id');
             if($id == 'art_class'||$id == 'art_keywords'){
@@ -367,12 +480,12 @@
             }
         });
 
-
+        // 分类切换事件 (加载扩展字段)
         form.on('select(type_id)', function(data){
             getExtend(data.value);
         });
 
-        //多图片上传
+        // 截图多图上传
         upload.render({
             elem: '.screenshot'
             ,url: "{:url('upload/upload')}?flag=art_screenshot"
@@ -395,7 +508,7 @@
             }
         });
 
-        //监听文本框
+        // 截图文本域实时预览
         $('#art_pic_screenshot').keyup(function(e){
             let html = ``;
             var textArr = $(this).val().split(/[(\r\n)\r\n]+/);
@@ -412,6 +525,7 @@
             $('.screenshot_list').html(html);
         });
 
+        // 图片上传 (封面/缩略图/幻灯片)
         upload.render({
             elem: '.layui-upload'
             ,url: "{:url('upload/upload')}?flag=art"
@@ -437,6 +551,7 @@
             }
         });
 
+        // 图片输入框悬停预览
         $('.upload-input').hover(function (e){
             var e = window.event || e;
             var imgsrc = $(this).val();
@@ -450,7 +565,7 @@
             $(".showpic").css("display","none");
         });
 
-
+        // 随机生成按钮 (点击量/评分等)
         $("#btn_rnd").click(function(){
             $("#art_hits").val( rndNum(5000,9999) );
             $("#art_hits_month").val( rndNum(1000,4999) );
@@ -464,16 +579,20 @@
         });
 
 
-
+        // 编辑器操作: 清空内容
         $('.contents').on('click','.j-editor-clear',function(){
             var datai = $(this).parent().parent().attr('data-i');
             editor_setContent(ueArray[datai],'');
         });
+
+        // 编辑器操作: 删除分页
         $('.contents').on('click','.j-editor-remove',function(){
             var datai = $(this).parent().parent().attr('data-i');
             $(this).parent().parent().remove();
             delete ueArray[datai];
         });
+
+        // 编辑器操作: 上移分页
         $('.contents').on('click','.j-editor-up',function(){
             var current = $(this).parent().parent();
             var current_index = current.index();
@@ -487,6 +606,8 @@
                 editor_setContent(ueArray[prev_i],current_txt);
             }
         });
+
+        // 编辑器操作: 下移分页
         $('.contents').on('click','.j-editor-down',function(){
             var current = $(this).parent().parent();
             var current_index = current.index();
@@ -503,6 +624,7 @@
             }
         });
 
+        // 添加新分页
         $('.j-editor-add').on('click',function(){
             content_arr_len++;
             var tpl='<div class="layui-form-item" data-i="'+content_arr_len+'"><label class="layui-form-label">{:lang('page_content')}'+(content_arr_len)+'：</label><div class="layui-input-inline w200"><input type="text" name="art_title[]" class="layui-input" placeholder="{:lang('page_title')}"></div><div class="layui-input-inline w200"><input type="text" name="art_note[]" class="layui-input" placeholder="{:lang('页备注')}"></div><div class="layui-input-inline w200 p10"><a href="javascript:void(0)" class="j-editor-clear">{:lang('clear')}</a>&nbsp;<a href="javascript:void(0)" class="j-editor-remove">{:lang('del')}</a>&nbsp;<a href="javascript:void(0)" class="j-editor-up">上移</a>&nbsp;<a href="javascript:void(0)" class="j-editor-down">下移</a>&nbsp;<br></div><div class="p10 m20"></div><div class="layui-input-block"><textarea id="art_content'+(content_arr_len)+'" name="art_content[]" type="text/plain" style="width:100%;height:250px"></textarea></div></div>';
@@ -511,6 +633,7 @@
 
         });
 
+        // 删除截图
         $(document).on('click', '.del_screenshot', function() {
             var src = $(this).parent().attr('data-src');
             var input = $("#art_pic_screenshot")
@@ -526,11 +649,17 @@
             input.val(snsArr.join('\r\n'));//重新赋值
             $.get("{:url('annex/del')}", {ids:src}, function(res){});
         });
+
+        // 新增时自动添加第一个编辑器
         if(content_arr_len==0){
             $('.j-editor-add').click();
         }
     });
 
+    /**
+     * 获取分类扩展字段
+     * 根据分类ID加载对应的扩展选项
+     */
     function getExtend(id){
         $.post("{:url('type/extend')}", {id:id}, function(res) {
 
@@ -547,12 +676,13 @@
         });
     }
 
+    // 编辑模式下延迟加载扩展字段
     {if condition="$info.art_id gt 0"}
     setTimeout(function () {
         getExtend('{$info.type_id}')
     },1000);
     {/if}
-    
+
 </script>
 
 </body>
