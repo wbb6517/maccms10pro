@@ -1,3 +1,31 @@
+<!--
+采集网址结果页 (Collect URL Result)
+============================================================
+
+【页面说明】
+显示采集列表页URL后提取到的内容URL列表
+展示采集统计信息和去重结果
+
+【控制器方法】
+Cj::col_url() - application/admin/controller/Cj.php
+
+【访问路径】
+GET admin.php/cj/col_url?id=xxx&page=x
+
+【模板变量】
+$url_list   - 当前采集的列表页URL
+$url        - 提取到的内容URL数组 [{url, title}]
+$total      - 本页提取URL总数
+$re         - 重复URL数量 (已存在于 cj_history)
+$total_page - 列表页总页数
+$param      - 请求参数
+
+【自动翻页】
+多页时自动跳转到下一页继续采集
+
+============================================================
+-->
+
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
 

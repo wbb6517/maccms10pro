@@ -1,3 +1,26 @@
+<!--
+采集内容详情页 (Collected Content Detail)
+============================================================
+
+【页面说明】
+查看单条已采集内容的详细信息
+展示URL、标题和所有采集到的字段数据
+
+【控制器方法】
+Cj::show() - application/admin/controller/Cj.php
+
+【访问路径】
+GET admin.php/cj/show?id=xxx
+
+【模板变量】
+$info       - 采集内容记录
+$info.url   - 内容来源URL
+$info.title - 内容标题
+$info.data  - 采集数据 (JSON解码后的数组)
+
+============================================================
+-->
+
 {include file="../../../application/admin/view_new/public/head" /}
 
 <div class="page-container p10">

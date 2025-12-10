@@ -1,5 +1,36 @@
+<!--
+采集节点编辑页 (Collection Node Edit)
+============================================================
+
+【页面说明】
+新增/编辑采集节点配置，包含网址规则、内容规则、自定义规则、高级配置
+
+【控制器方法】
+Cj::info() - application/admin/controller/Cj.php
+
+【访问路径】
+GET  admin.php/cj/info?id=xxx  (编辑)
+GET  admin.php/cj/info         (新增)
+POST admin.php/cj/info         (保存)
+
+【模板变量】
+$data - 节点配置数据 (来自 mac_cj_node 表)
+
+【Tab页签结构】
+1. 网址规则: 源编码、模块类型、URL配置、过滤条件
+2. 内容规则: 标题/分类/内容提取规则、分页配置
+3. 自定义规则: 动态添加自定义字段采集规则
+4. 高级配置: 分页方式、入库顺序
+
+【规则语法】
+- 提取规则: 开始标记[内容]结束标记
+- 过滤规则: 正则[|]替换值 (多行多规则)
+
+============================================================
+-->
+
 {include file="../../../application/admin/view_new/public/head" /}
-    <!--添加采集点 start-->
+    <!-- 添加采集点表单 -->
 <form class="layui-form" name="myform" method="post" id="myform">
     <input type="hidden" name="data[nodeid]" value="{$data.nodeid}">
     <div class="layui-tab" style="min-height: 430px;">

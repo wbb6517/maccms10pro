@@ -1,18 +1,108 @@
 <?php
+/**
+ * 自定义采集控制器 (Custom Collection Controller)
+ * ============================================================
+ *
+ * 【文件说明】
+ * 自定义采集模块的后台管理控制器
+ * 支持通过配置规则从外部网站采集视频/文章数据
+ * 与系统内置的资源站采集不同，本模块支持自定义采集规则
+ *
+ * 【菜单位置】
+ * 后台管理 → 采集管理 → 自定义采集
+ *
+ * 【数据表】
+ * - mac_cj_node    : 采集节点配置表 (存储采集规则)
+ * - mac_cj_content : 采集内容暂存表 (采集后待入库的数据)
+ * - mac_cj_history : 采集历史记录表 (URL去重)
+ *
+ * 【采集流程】
+ * ┌─────────────────────────────────────────────────────────────────┐
+ * │  1. 创建节点 → 2. 配置规则 → 3. 字段映射 → 4. 采集网址         │
+ * │       ↓                                          ↓              │
+ * │  5. 采集内容 ← ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘              │
+ * │       ↓                                                         │
+ * │  6. 内容入库 → 7. 完成 (数据写入 mac_vod 或 mac_art)           │
+ * └─────────────────────────────────────────────────────────────────┘
+ *
+ * 【方法列表】
+ * ┌─────────────────┬────────────────────────────────────────────────┐
+ * │ 方法名           │ 功能说明                                        │
+ * ├─────────────────┼────────────────────────────────────────────────┤
+ * │ index()         │ 采集节点列表页                                   │
+ * │ info()          │ 新增/编辑采集节点                                │
+ * │ program()       │ 字段映射配置 (采集字段→数据库字段)               │
+ * │ col_all()       │ 一键采集 (网址+内容+入库)                        │
+ * │ col_url()       │ 采集网址列表                                     │
+ * │ col_content()   │ 采集内容详情                                     │
+ * │ publish()       │ 已采集内容管理列表                               │
+ * │ show()          │ 查看单条采集内容详情                             │
+ * │ content_del()   │ 删除采集内容                                     │
+ * │ content_into()  │ 将采集内容入库到正式表                           │
+ * │ show_url()      │ 测试网址规则生成                                 │
+ * │ del()           │ 删除采集节点                                     │
+ * │ export()        │ 导出节点配置 (Base64+JSON)                       │
+ * │ import()        │ 导入节点配置                                     │
+ * └─────────────────┴────────────────────────────────────────────────┘
+ *
+ * 【访问路径】
+ * admin.php/cj/index       → 节点列表
+ * admin.php/cj/info        → 添加/编辑节点
+ * admin.php/cj/program     → 字段映射
+ * admin.php/cj/col_url     → 采集网址
+ * admin.php/cj/col_content → 采集内容
+ * admin.php/cj/publish     → 内容管理
+ * admin.php/cj/content_into→ 内容入库
+ *
+ * 【相关文件】
+ * - application/common/model/Cj.php        : 采集数据模型
+ * - application/common/util/Collection.php : 采集工具类 (核心解析逻辑)
+ * - application/common/model/Collect.php   : 数据入库模型
+ *
+ * ============================================================
+ */
 namespace app\admin\controller;
 use think\Db;
 use app\common\util\Collection as cjOper;
 
 class Cj extends Base
 {
+    /**
+     * 一键采集标识
+     * 1=执行一键采集模式 (自动执行: 采集网址→采集内容→入库)
+     * 0=单步采集模式
+     * @var int
+     */
     var $_isall=0;
 
+    /**
+     * 构造函数
+     */
     public function __construct()
     {
         parent::__construct();
     }
 
-    //列表
+    /**
+     * ============================================================
+     * 采集节点列表页
+     * ============================================================
+     *
+     * 【功能说明】
+     * 显示所有已配置的采集节点列表
+     * 支持分页浏览
+     *
+     * 【页面结构】
+     * ┌────────────────────────────────────────────────────┐
+     * │ 工具栏: [添加节点] [导入节点]                        │
+     * ├────────────────────────────────────────────────────┤
+     * │ 列表: 节点名称 | 模块 | 编码 | 最后采集 | 操作       │
+     * ├────────────────────────────────────────────────────┤
+     * │ 分页导航                                            │
+     * └────────────────────────────────────────────────────┘
+     *
+     * @return mixed 视图输出
+     */
     public function index()
     {
         $param = input();
@@ -37,6 +127,28 @@ class Cj extends Base
     }
 
 
+    /**
+     * ============================================================
+     * 新增/编辑采集节点
+     * ============================================================
+     *
+     * 【功能说明】
+     * GET  : 显示采集节点配置表单
+     * POST : 保存采集节点配置
+     *
+     * 【配置项说明】
+     * - name         : 节点名称
+     * - mid          : 模块类型 (1=视频 2=文章)
+     * - sourcetype   : 列表源类型 (1=序列 2=单页)
+     * - urlpage      : 列表URL规则 (支持 {page} 占位符)
+     * - pagesize_start/end : 分页范围
+     * - url_rule     : 内容URL匹配规则
+     * - title_rule   : 标题匹配规则
+     * - content_rule : 内容匹配规则
+     * - customize_config : 自定义字段配置 (JSON)
+     *
+     * @return mixed 视图输出或JSON响应
+     */
     public function info()
     {
         if (Request()->isPost()) {
@@ -71,6 +183,32 @@ class Cj extends Base
         return $this->fetch('admin@cj/info');
     }
 
+    /**
+     * ============================================================
+     * 字段映射配置
+     * ============================================================
+     *
+     * 【功能说明】
+     * 配置采集字段与数据库字段的映射关系
+     * 支持为每个字段指定处理函数
+     *
+     * 【映射配置】
+     * program_config JSON 结构:
+     * {
+     *   "map": {
+     *     "vod_name": "title",    // 数据库字段 => 采集字段
+     *     "type_id": "type",
+     *     "vod_content": "content"
+     *   },
+     *   "funcs": {
+     *     "vod_name": "strip_tags", // 字段处理函数
+     *     "type_id": "",
+     *     "vod_content": ""
+     *   }
+     * }
+     *
+     * @return mixed 视图输出或JSON响应
+     */
     public function program()
     {
         $param = input();
@@ -128,6 +266,13 @@ class Cj extends Base
         return $this->fetch('admin@cj/program');
     }
 
+    /**
+     * 一键采集入口
+     * 设置 _isall=1 后调用 col_url()
+     * 自动执行: 采集网址 → 采集内容 → 入库
+     *
+     * @param array $param 请求参数
+     */
     public function col_all($param)
     {
         $this->_isall=1;
@@ -135,7 +280,30 @@ class Cj extends Base
     }
 
 
-    //采集网址
+    /**
+     * ============================================================
+     * 采集网址列表
+     * ============================================================
+     *
+     * 【功能说明】
+     * 根据节点配置的URL规则，从目标网站采集内容列表页
+     * 解析出所有内容详情页的URL，存入 cj_content 表
+     *
+     * 【采集流程】
+     * 1. 根据 urlpage 规则生成列表页URL数组
+     * 2. 逐页抓取列表页HTML
+     * 3. 用 url_rule/title_rule 解析出内容URL和标题
+     * 4. MD5去重后存入 cj_content 表 (status=1)
+     * 5. 多页时自动跳转到下一页
+     *
+     * 【内容状态 status】
+     * 1 = 已采集网址，待采集内容
+     * 2 = 已采集内容，待入库
+     * 3 = 已入库完成
+     *
+     * @param array $param 请求参数 (id=节点ID, page=当前页)
+     * @return mixed 视图输出
+     */
     public function col_url($param=[]) {
         if(empty($param)){
             $param = input();
@@ -212,7 +380,24 @@ class Cj extends Base
         return $this->fetch('admin@cj/col_url');
     }
 
-    //采集文章
+    /**
+     * ============================================================
+     * 采集内容详情
+     * ============================================================
+     *
+     * 【功能说明】
+     * 根据已采集的URL列表，逐个访问详情页采集内容
+     * 将采集到的数据存入 cj_content.data 字段 (JSON格式)
+     *
+     * 【采集流程】
+     * 1. 查询 status=1 的待采集内容
+     * 2. 访问详情页URL获取HTML
+     * 3. 用配置的规则解析出各字段内容
+     * 4. JSON序列化后存入 data 字段，status 改为 2
+     * 5. 分批处理，每批20条
+     *
+     * @param array $param 请求参数 (id=节点ID)
+     */
     public function col_content($param=[]) {
         if(empty($param)){
             $param = input();
@@ -281,6 +466,12 @@ class Cj extends Base
     }
 
 
+    /**
+     * 已采集内容管理列表
+     * 查看指定节点下所有采集的内容，支持按状态筛选
+     *
+     * @return mixed 视图输出
+     */
     public function publish()
     {
         $param = input();
@@ -309,6 +500,12 @@ class Cj extends Base
         return $this->fetch('admin@cj/publish');
     }
 
+    /**
+     * 查看单条采集内容详情
+     * 显示采集到的原始数据 (JSON 解码后展示)
+     *
+     * @return mixed 视图输出
+     */
     public function show()
     {
         $id = input('id');
@@ -324,6 +521,12 @@ class Cj extends Base
 
     }
 
+    /**
+     * 删除采集内容
+     * 同时清除对应的 cj_history 记录，允许重新采集
+     *
+     * @return \think\response\Json JSON响应
+     */
     public function content_del()
     {
         $param = input();
@@ -355,6 +558,23 @@ class Cj extends Base
         return $this->success(lang('del_ok'));
     }
 
+    /**
+     * ============================================================
+     * 采集内容入库
+     * ============================================================
+     *
+     * 【功能说明】
+     * 将已采集的内容 (status=2) 根据字段映射配置
+     * 转换后写入正式数据表 (mac_vod 或 mac_art)
+     *
+     * 【入库流程】
+     * 1. 获取节点的 program_config 字段映射配置
+     * 2. 遍历待入库内容，按映射转换字段
+     * 3. 调用 Collect 模型的 vod_data/art_data 方法入库
+     * 4. 入库成功后将 status 改为 3
+     *
+     * @param array $param 请求参数 (id=节点ID, ids=内容ID, all=是否全部)
+     */
     public function content_into($param=[])
     {
         if(empty($param)){
@@ -458,7 +678,12 @@ class Cj extends Base
     }
 
 
-    //序列网址测试
+    /**
+     * 测试网址规则生成
+     * 用于预览 URL 规则生成的列表页网址
+     *
+     * @return mixed 视图输出
+     */
     public function show_url()
     {
         $param = input();
@@ -472,6 +697,12 @@ class Cj extends Base
         return $this->fetch('admin@cj/show_url');
     }
 
+    /**
+     * 删除采集节点
+     * 同时删除节点下的所有采集内容
+     *
+     * @return \think\response\Json JSON响应
+     */
     public function del()
     {
         $param = input();
@@ -489,6 +720,11 @@ class Cj extends Base
         return $this->error(lang('param_err'));
     }
 
+    /**
+     * 导出节点配置
+     * 将节点配置转为 JSON 后 Base64 编码，供下载备份
+     * 文件名格式: mac_cj_{节点名称}.txt
+     */
     public function export()
     {
         $param = input();
@@ -511,6 +747,12 @@ class Cj extends Base
         echo base64_encode(json_encode($node));
     }
 
+    /**
+     * 导入节点配置
+     * 上传 .txt 文件，Base64 解码后解析 JSON，创建新节点
+     *
+     * @return \think\response\Json JSON响应
+     */
     public function import()
     {
         $file = $this->request->file('file');

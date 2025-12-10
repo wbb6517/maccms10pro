@@ -1,4 +1,69 @@
 <?php
+/**
+ * 资源站采集模型 (Resource Site Collection Model)
+ * ============================================================
+ *
+ * 【功能说明】
+ * 核心采集业务逻辑，从外部资源站API获取数据并入库到本地数据库
+ * 支持视频/文章/演员/角色/网站/漫画六种数据类型的采集
+ * 支持 XML 和 JSON 两种接口格式
+ *
+ * 【数据表】
+ * mac_collect - 采集源配置表
+ *
+ * 【核心方法分类】
+ *
+ * 基础CRUD:
+ * - listData()      : 获取采集源列表
+ * - infoData()      : 获取单个采集源信息
+ * - saveData()      : 保存采集源配置
+ * - delData()       : 删除采集源
+ *
+ * 视频采集 (mid=1):
+ * - vod()           : 视频数据接口调用
+ * - vod_data()      : 视频数据入库处理
+ * - vod_data_bind() : 视频数据字段绑定
+ * - checkParam()    : 视频字段过滤检查
+ *
+ * 文章采集 (mid=2):
+ * - art()           : 文章数据接口调用
+ * - art_data()      : 文章数据入库处理
+ *
+ * 演员采集 (mid=8):
+ * - actor()         : 演员数据接口调用
+ * - actor_data()    : 演员数据入库处理
+ *
+ * 角色采集 (mid=9):
+ * - role()          : 角色数据接口调用
+ * - role_data()     : 角色数据入库处理
+ *
+ * 网站采集 (mid=11):
+ * - website()       : 网站数据接口调用
+ * - website_data()  : 网站数据入库处理
+ *
+ * 漫画采集 (mid=12):
+ * - manga()         : 漫画数据接口调用
+ * - manga_data()    : 漫画数据入库处理
+ *
+ * 工具方法:
+ * - mac_data_count(): 数据统计
+ * - mac_data_check(): 数据检验
+ * - get_page_url()  : 分页URL处理
+ *
+ * 【采集流程】
+ * 1. 调用接口获取列表/详情数据 (XML/JSON)
+ * 2. 解析数据结构
+ * 3. 根据分类绑定映射到本地分类
+ * 4. 根据配置过滤和处理数据
+ * 5. 写入或更新到本地数据库
+ *
+ * 【相关文件】
+ * - application/admin/controller/Collect.php : 采集控制器
+ * - application/extra/bind.php               : 分类绑定配置
+ * - application/extra/maccms.php             : 采集参数配置
+ *
+ * ============================================================
+ */
 namespace app\common\model;
 use think\Db;
 use think\Cache;

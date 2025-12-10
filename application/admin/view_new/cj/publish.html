@@ -1,3 +1,39 @@
+<!--
+已采集内容管理页 (Collected Content Management)
+============================================================
+
+【页面说明】
+管理指定节点下所有已采集的内容
+支持按状态筛选、批量删除、批量入库
+
+【控制器方法】
+Cj::publish() - application/admin/controller/Cj.php
+
+【访问路径】
+GET admin.php/cj/publish?id=xxx&status=x
+
+【模板变量】
+$list   - 采集内容列表 (来自 mac_cj_content)
+$param  - 请求参数 (含节点ID和状态)
+$total  - 总记录数
+$page   - 当前页码
+$limit  - 每页数量
+
+【状态筛选 Tab】
+- 全部: 所有状态
+- 待采集: status=1 (已采集网址)
+- 已采集: status=2 (已采集内容,待入库)
+- 已入库: status=3 (已写入正式表)
+
+【工具栏操作】
+- 删除: 删除选中内容
+- 清空: 删除全部内容
+- 入库: 将选中内容入库
+- 全部入库: 入库所有已采集内容
+
+============================================================
+-->
+
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container">
     <form class="layui-form layui-form-pane" action="">

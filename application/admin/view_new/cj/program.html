@@ -1,3 +1,32 @@
+<!--
+字段映射配置页 (Field Mapping Configuration)
+============================================================
+
+【页面说明】
+配置采集字段与数据库字段的映射关系
+将采集到的数据对应到 mac_vod 或 mac_art 表字段
+
+【控制器方法】
+Cj::program() - application/admin/controller/Cj.php
+
+【访问路径】
+GET  admin.php/cj/program?id=xxx
+POST admin.php/cj/program
+
+【模板变量】
+$param          - 请求参数 (含节点ID)
+$column_list    - 数据库表字段列表
+$node_field     - 采集字段列表 (title/type/content + 自定义字段)
+$program_config - 已保存的映射配置
+
+【表单字段】
+- model_field[]: 数据库字段名
+- node_field[]:  对应的采集字段
+- funcs[]:       处理函数 (如 trim)
+
+============================================================
+-->
+
 {include file="../../../application/admin/view_new/public/head" /}
 <div class="page-container p10">
     <form class="layui-form layui-form-pane" action="">
