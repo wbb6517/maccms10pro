@@ -1658,6 +1658,7 @@ https://www.baidu.com/123.jpg
     'admin/collect/cj_select'=>'采选中',
     'admin/collect/cj_today'=>'采当天',
     'admin/collect/cj_all'=>'采全部',
+    'admin/collect/back_to_list'=>'返回列表',
     'admin/collect/clear_bind'=>'清空绑定',
     'admin/collect/name'=>'资源名称',
     'admin/collect/api_url'=>'接口地址',
