@@ -163,10 +163,25 @@ class VodPlayer extends Base
                 return $this->error(lang('write_err_config'));
             }
 
-            $res = fwrite(fopen('./static/player/' . $param['from'].'.js','wb'),$code);
-            if($res===false){
+            // 写入播放器JS代码文件，同时支持 static 和 static_new 两个目录
+            $jsDirs = ['./static/player/', './static_new/player/'];
+            $writeSuccess = false;
+            foreach ($jsDirs as $jsDir) {
+                if (!is_dir($jsDir)) {
+                    @mkdir($jsDir, 0755, true);
+                }
+                $jsFile = $jsDir . $param['from'] . '.js';
+                $fp = @fopen($jsFile, 'wb');
+                if ($fp !== false) {
+                    fwrite($fp, $code);
+                    fclose($fp);
+                    $writeSuccess = true;
+                }
+            }
+            if (!$writeSuccess) {
                 return $this->error(lang('wirte_err_codefile'));
             }
+
             cache('cache_data','1');
             return $this->success(lang('save_ok'));
         }
@@ -214,16 +229,17 @@ class VodPlayer extends Base
      *
      * 【功能说明】
      * 批量修改选中播放器的指定字段值
-     * 支持修改 status(状态) 和 ps(解析状态) 字段
+     * 支持修改 status(状态)、ps(解析状态)、sort(排序) 字段
      *
      * 【请求参数】
      * - ids : 播放器编码列表 (逗号分隔)
-     * - col : 字段名 (status/ps)
+     * - col : 字段名 (status/ps/sort)
      * - val : 字段值
      *
      * 【使用场景】
      * - 批量启用/禁用播放器
      * - 批量开启/关闭解析功能
+     * - 快速修改排序值
      *
      * @return \think\response\Json 操作结果
      */
@@ -234,7 +250,7 @@ class VodPlayer extends Base
         $col = $param['col'];
         $val = $param['val'];
 
-        if(!empty($ids) && in_array($col,['ps','status'])){
+        if(!empty($ids) && in_array($col,['ps','status','sort'])){
             $list = config($this->_pre);
             $ids = explode(',',$ids);
             foreach($list as $k=>&$v){
@@ -242,6 +258,16 @@ class VodPlayer extends Base
                     $v[$col] = $val;
                 }
             }
+
+            // 如果修改的是排序字段，需要重新排序
+            if($col == 'sort'){
+                $sort = [];
+                foreach ($list as $k => &$v) {
+                    $sort[] = $v['sort'];
+                }
+                array_multisort($sort, SORT_DESC, SORT_FLAG_CASE, $list);
+            }
+
             $res = mac_arr2file(APP_PATH. 'extra/'.$this->_pre.'.php', $list);
             if($res===false){
                 return $this->error(lang('save_err'));

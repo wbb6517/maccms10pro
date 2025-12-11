@@ -55,14 +55,29 @@ return array (
   array (
     'status' => '1',
     'from' => 'dbm3u8',
-    'show' => '豆瓣',
-    'des' => 'dbm3u8',
+    'show' => '豆瓣资源',
+    'des' => '豆瓣资源',
+    'target' => '_self',
+    'ps' => '1',
+    'parse' => 'https://www.dbjiexi.com:966/jx/?url=',
+    'sort' => '10000',
+    'tip' => 'dbzy.com dbzy.tv  doubanzy.net  doubanzy.cc
+doubanziyuan.net  doubanziyuan.com',
+    'id' => 'dbm3u8',
+  ),
+  'dbyun' => 
+  array (
+    'status' => '1',
+    'from' => 'dbyun',
+    'show' => '豆瓣云',
+    'des' => '豆瓣云',
     'target' => '_self',
     'ps' => '0',
-    'parse' => 'https://dbzy8.com:699/?url=',
+    'parse' => 'https://www.dbjiexi.com:966/jx/?url=',
     'sort' => '10000',
-    'tip' => 'dbm3u8',
-    'id' => 'dbm3u8',
+    'tip' => 'dbzy.com dbzy.tv  doubanzy.net  doubanzy.cc
+doubanziyuan.net  doubanziyuan.com',
+    'id' => 'dbyun',
   ),
   'dplayer' => 
   array (

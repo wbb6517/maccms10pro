@@ -74,7 +74,10 @@
             {volist name="list" id="vo"}
             <tr>
                 <td><input type="checkbox" name="ids[]" value="{$vo.from}" class="layui-checkbox checkbox-ids" lay-skin="primary"></td>
-                <td>{$vo.sort}</td>
+                <td>
+                    <!-- 排序快速编辑 -->
+                    <input type="text" class="layui-input j-sort-input" data-id="{$vo.from}" value="{$vo.sort}" style="width:60px;text-align:center;padding:0 5px;height:28px;">
+                </td>
                 <td>{$vo.from}</td>
                 <td>{$vo.show}</td>
                 <!-- 状态显示: 绿色=启用, 红色=禁用 -->
@@ -110,8 +113,78 @@
                 , layer = layui.layer
                 , $ = layui.jquery;
 
+        // 排序快速编辑 - 失去焦点或按回车时保存
+        $(document).on('blur', '.j-sort-input', function() {
+            var $this = $(this);
+            var id = $this.data('id');
+            var val = $this.val();
+            var originalVal = $this.attr('data-original');
 
+            // 如果值没变化，不提交
+            if (val === originalVal) return;
+
+            // 发送请求保存排序
+            $.ajax({
+                url: '{:url("field")}',
+                type: 'POST',
+                data: {
+                    ids: id,
+                    col: 'sort',
+                    val: val
+                },
+                dataType: 'json',
+                success: function(res) {
+                    if (res.code === 1) {
+                        // 更新原始值
+                        $this.attr('data-original', val);
+                        // 平滑刷新
+                        smoothReload();
+                    } else {
+                        layer.msg(res.msg, {icon: 2});
+                        $this.val(originalVal); // 恢复原值
+                    }
+                },
+                error: function() {
+                    layer.msg('请求失败', {icon: 2});
+                    $this.val(originalVal);
+                }
+            });
+        });
+
+        $(document).on('keydown', '.j-sort-input', function(e) {
+            // 按回车时触发保存
+            if (e.keyCode === 13) {
+                $(this).blur();
+                return false;
+            }
+        });
+
+        // 初始化：记录原始值
+        $('.j-sort-input').each(function() {
+            $(this).attr('data-original', $(this).val());
+        });
+
+        // 平滑刷新页面（带淡出淡入效果）
+        function smoothReload() {
+            var $container = $('.page-container');
+            $container.css('opacity', '0.5');
+            setTimeout(function() {
+                location.reload();
+            }, 100);
+        }
+
+        // 暴露刷新方法供外部调用
+        window.refreshPlayerTable = smoothReload;
     });
+
+    // iframe 弹窗关闭后刷新列表 (编辑/添加播放器后)
+    function onIframeClose() {
+        if (window.refreshPlayerTable) {
+            window.refreshPlayerTable();
+        } else {
+            location.reload();
+        }
+    }
 </script>
 </body>
 </html>
