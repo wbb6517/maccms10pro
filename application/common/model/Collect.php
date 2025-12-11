@@ -1651,48 +1651,86 @@ class Collect extends Base {
             }
         }
 
+        // ========== 第十步：采集完成后的跳转处理 ==========
+        // 断点续采缓存键名，用于记录采集中断位置
         $key = $GLOBALS['config']['app']['cache_flag']. '_'.'collect_break_vod';
+
+        // ========== API入口模式 (定时任务调用) ==========
+        // ENTRANCE='api' 表示通过 api.php 入口调用 (如定时任务)
+        // 此模式下使用递归方式自动采集所有页，无需页面跳转
         if(ENTRANCE=='api'){
-            Cache::rm($key);
+            Cache::rm($key);  // 清除断点缓存
+            // 如果还有更多页，递归调用继续采集
             if ($data['page']['page'] < $data['page']['pagecount']) {
                 $param['page'] = intval($data['page']['page']) + 1;
                 $res = $this->vod($param);
                 if($res['code']>1){
                     return $this->error($res['msg']);
                 }
-                $this->vod_data($param,$res );
+                $this->vod_data($param,$res );  // 递归处理下一页
             }
-            mac_echo(lang('model/collect/is_over'));
+            mac_echo(lang('model/collect/is_over'));  // 输出"采集完成"
             die;
         }
 
+        // ========== 后台页面模式 (浏览器访问) ==========
+        // 使用 JS 跳转实现自动翻页，避免长时间占用进程
+
+        // 跳转间隔时间 (秒)，默认3秒
+        // 配置位置: 系统 → 网站参数配置 → 采集间隔时间
         if(empty($GLOBALS['config']['app']['collect_timespan'])){
             $GLOBALS['config']['app']['collect_timespan'] = 3;
         }
+
+        // $show=1 表示需要输出页面 (后台浏览器访问)
         if($show==1) {
+            // ===== 情况1: 采集选中项完成 (ac=cjsel) =====
+            // 用户在列表页勾选视频后点击"采集当前"触发
             if ($param['ac'] == 'cjsel') {
-                Cache::rm($key);
-                mac_echo(lang('model/collect/is_over'));
-                unset($param['ids']);
-                $param['ac'] = 'list';
+                Cache::rm($key);  // 清除断点缓存
+                mac_echo(lang('model/collect/is_over'));  // 输出"采集完成"
+
+                // 构建返回列表页的URL
+                unset($param['ids']);  // 移除已采集的ID参数
+                $param['ac'] = 'list';  // 切换为列表模式
                 $url = url('api') . '?' . http_build_query($param);
+
+                // 优先跳转回来源页 (用户之前浏览的列表页)
                 $ref = $_SERVER["HTTP_REFERER"];
                 if(!empty($ref)){
                    $url = $ref;
                 }
 
+                // 延时跳转回列表页
+                // mac_jump() 输出 JS: setTimeout(function(){location.href="url"}, 秒*1000)
                 mac_jump($url, $GLOBALS['config']['app']['collect_timespan']);
+
             } else {
+                // ===== 情况2: 分页采集模式 (ac=videolist) =====
+                // 自动采集全部或指定分类的视频数据
+
                 if ($data['page']['page'] >= $data['page']['pagecount']) {
-                    Cache::rm($key);
-                    mac_echo(lang('model/collect/is_over'));
+                    // ===== 所有页采集完成 =====
+                    // 当前页 >= 总页数，表示已采集到最后一页
+                    Cache::rm($key);  // 清除断点缓存
+                    mac_echo(lang('model/collect/is_over'));  // 输出"采集完成"
+
+                    // 构建返回列表页的URL
                     unset($param['page'],$param['ids']);
                     $param['ac'] = 'list';
                     $url = url('api') . '?' . http_build_query($param);
+
+                    // 延时跳转回采集列表页
                     mac_jump($url, $GLOBALS['config']['app']['collect_timespan']);
+
                 } else {
-                    $param['page'] = intval($data['page']['page']) + 1;
+                    // ===== 还有更多页，自动跳转下一页 =====
+                    // 实现自动翻页采集功能
+                    $param['page'] = intval($data['page']['page']) + 1;  // 页码+1
                     $url = url('api') . '?' . http_build_query($param);
+
+                    // 延时跳转到下一页继续采集
+                    // 用户可在此期间点击"停止"中断采集
                     mac_jump($url, $GLOBALS['config']['app']['collect_timespan'] );
                 }
             }

@@ -29,12 +29,13 @@
         </div>
 
         <div class="">
-            <form class="layui-form " method="">
+            <form class="layui-form " method="" style="display:inline-block;">
                 <div class="layui-input-inline">
                     <input type="text" autocomplete="off" placeholder="{:lang('wd')}" class="layui-input" id="wd" name="wd" value="{$param['wd']|mac_filter_xss}">
                 </div>
-                <button type="button" class="layui-btn mgl-20 j-btn" >{:lang('btn_search')}</button>
+                <button type="button" class="layui-btn mgl-20 j-btn">{:lang('btn_search')}</button>
             </form>
+            <a href="{:url('collect/index')}" class="layui-btn layui-btn-primary" style="margin-left:10px;"><i class="layui-icon layui-icon-return"></i>{:lang('admin/collect/back_to_list')}</a>
         </div>
 
     </div>
