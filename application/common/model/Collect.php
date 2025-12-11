@@ -85,6 +85,14 @@ class Collect extends Base {
     protected $insert     = [];
     protected $update     = [];
 
+    /**
+     * 获取采集源列表
+     * @param array $where 查询条件
+     * @param string $order 排序方式
+     * @param int $page 页码
+     * @param int $limit 每页数量
+     * @return array
+     */
     public function listData($where,$order,$page=1,$limit=20,$start=0)
     {
         $page = $page > 0 ? (int)$page : 1;
@@ -95,6 +103,12 @@ class Collect extends Base {
         return ['code'=>1,'msg'=>lang('data_list'),'page'=>$page,'pagecount'=>ceil($total/$limit),'limit'=>$limit,'total'=>$total,'list'=>$list];
     }
 
+    /**
+     * 获取单个采集源详情
+     * @param array $where 查询条件 (collect_id)
+     * @param string $field 查询字段
+     * @return array
+     */
     public function infoData($where,$field='*')
     {
         if(empty($where) || !is_array($where)){
@@ -109,10 +123,42 @@ class Collect extends Base {
         return ['code'=>1,'msg'=>lang('obtain_ok'),'info'=>$info];
     }
 
+    /**
+     * ============================================================
+     * 保存采集源配置 (Save Collection Source)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 保存采集源配置到 mac_collect 表
+     * 根据是否有 collect_id 判断是新增还是更新
+     *
+     * 【保存流程】
+     * 1. 验证数据格式 (Collect验证器)
+     * 2. 有collect_id → 更新记录
+     * 3. 无collect_id → 新增记录
+     *
+     * 【数据字段】
+     * - collect_name     : 采集源名称
+     * - collect_url      : 接口地址
+     * - collect_type     : 接口类型 (1=xml, 2=json)
+     * - collect_mid      : 模块类型 (1=视频, 2=文章...)
+     * - collect_opt      : 数据操作 (0=新增+更新, 1=新增, 2=更新)
+     * - collect_filter   : 地址过滤模式
+     * - collect_filter_from : 过滤代码
+     * - collect_param    : 附加参数
+     * - collect_sync_pic : 同步图片设置
+     *
+     * @param array $data 表单提交的数据
+     * @return array {code:1, msg:'保存成功'}
+     */
     public function saveData($data)
     {
+        // 加载Collect验证器
         $validate = \think\Loader::validate('Collect');
+
+        // 判断新增还是更新
         if(!empty($data['collect_id'])){
+            // ===== 更新操作 =====
             if(!$validate->scene('edit')->check($data)){
                 return ['code'=>1001,'msg'=>lang('param_err').'：'.$validate->getError() ];
             }
@@ -122,17 +168,24 @@ class Collect extends Base {
             $res = $this->where($where)->update($data);
         }
         else{
+            // ===== 新增操作 =====
             if(!$validate->scene('edit')->check($data)){
                 return ['code'=>1002,'msg'=>lang('param_err').'：'.$validate->getError() ];
             }
             $res = $this->insert($data);
         }
+
         if(false === $res){
             return ['code'=>1003,'msg'=>''.$this->getError() ];
         }
         return ['code'=>1,'msg'=>lang('save_ok')];
     }
 
+    /**
+     * 删除采集源
+     * @param array $where 删除条件
+     * @return array
+     */
     public function delData($where)
     {
         $res = $this->where($where)->delete();
@@ -142,6 +195,10 @@ class Collect extends Base {
         return ['code'=>1,'msg'=>lang('del_ok')];
     }
 
+    /**
+     * 验证采集标识 (防止伪造请求)
+     * cjflag 必须等于 cjurl 的 MD5 值
+     */
     public function check_flag($param)
     {
         if($param['cjflag'] != md5($param['cjurl'])){
@@ -150,15 +207,40 @@ class Collect extends Base {
         return ['code'=>1,'msg'=>'ok'];
     }
 
+    /**
+     * ============================================================
+     * 视频采集接口调用 (Video Collection API)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 调用资源站API获取视频数据，支持XML和JSON两种格式
+     * 用于"测试"按钮和实际采集时获取数据
+     *
+     * 【处理逻辑】
+     * - type=1 : 调用 vod_xml() 处理XML格式
+     * - type=2 : 调用 vod_json() 处理JSON格式
+     * - type为空: 先尝试JSON，失败则尝试XML
+     *
+     * 【返回结果】
+     * 成功: {code:1, msg:'json', page:{}, type:[], data:[]}
+     * 失败: {code:1001, msg:'错误信息'}
+     *
+     * @param array $param 采集参数
+     * @return array
+     */
     public function vod($param)
     {
+        // 根据接口类型选择解析方式
         if($param['type'] == '1'){
+            // XML格式
             return $this->vod_xml($param);
         }
         elseif($param['type'] == '2'){
+            // JSON格式
             return $this->vod_json($param);
         }
         else{
+            // 自动检测: 先尝试JSON，失败则尝试XML
             $data = $this->vod_json($param);
 
             if($data['code'] == 1){
@@ -210,9 +292,34 @@ class Collect extends Base {
         }
     }
 
+    /**
+     * ============================================================
+     * 格式化播放地址 (Format Play URL)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 清理和格式化从XML中提取的播放地址字符串
+     * 处理 "||" 转义符号和 "$" 分隔的 "名称$地址" 格式
+     *
+     * 【输入格式】
+     * 原始格式: "第1集$http://a.com||第2集$http://b.com#第3集$http://c.com"
+     * - "#" 分隔不同剧集
+     * - "$" 分隔剧集名称和地址
+     * - "||" 是资源站对 "//" 的转义 (避免XML解析问题)
+     *
+     * 【输出格式】
+     * 处理后: "第1集$http://a.com#第2集$http://b.com#第3集$http://c.com"
+     *
+     * 【调用位置】
+     * vod_xml() 方法中处理 <dl><dd> 标签的播放地址
+     *
+     * @param string $url 原始播放地址字符串 (# 分隔多集)
+     * @return string 格式化后的播放地址
+     */
     public function vod_xml_replace($url)
     {
         $array_url = array();
+        // 将 "||" 还原为 "//" (资源站的URL转义处理)
         $arr_ji = explode('#',str_replace('||','//',$url));
         foreach($arr_ji as $key=>$value){
             $urlji = explode('$',$value);
@@ -225,6 +332,74 @@ class Collect extends Base {
         return implode('#',$array_url);
     }
 
+    /**
+     * ============================================================
+     * XML格式API采集 (XML API Collection)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 从XML格式的资源站API获取视频数据，解析并标准化为系统格式
+     * 这是苹果CMS标准的XML采集接口格式
+     *
+     * 【XML接口格式】(标准苹果CMS接口)
+     * ```xml
+     * <rss>
+     *   <list page="1" pagecount="100" pagesize="20" recordcount="2000">
+     *     <video>
+     *       <id>123</id>
+     *       <tid>1</tid>           <!-- 资源站分类ID -->
+     *       <name>视频名称</name>
+     *       <pic>封面地址</pic>
+     *       <note>更新至第10集</note>
+     *       <actor>演员列表</actor>
+     *       <director>导演</director>
+     *       <des>简介内容</des>
+     *       <dl>                   <!-- 播放列表 -->
+     *         <dd flag="m3u8">第1集$url1#第2集$url2</dd>
+     *         <dd flag="qq">第1集$url1#第2集$url2</dd>
+     *       </dl>
+     *     </video>
+     *   </list>
+     *   <class>                    <!-- 分类列表 (ac=list时) -->
+     *     <ty id="1">电影</ty>
+     *     <ty id="2">电视剧</ty>
+     *   </class>
+     * </rss>
+     * ```
+     *
+     * 【请求参数】
+     * - ac: videolist(视频详情) | list(分类列表)
+     * - t: 分类ID
+     * - pg: 页码
+     * - h: 小时内更新 (如 h=24 表示24小时内)
+     * - ids: 指定ID列表
+     * - wd: 搜索关键词
+     *
+     * 【分类绑定】
+     * 通过 config('bind') 将资源站分类ID映射到本站分类ID
+     * 绑定键格式: "{cjflag}_{资源站分类ID}" => 本站分类ID
+     *
+     * 【调用链路】
+     * vod() → vod_xml() → checkCjUrl() → mac_curl_get() → simplexml_load_string()
+     *
+     * @param array $param 采集参数
+     *   - cjurl: 接口地址
+     *   - ac: 操作类型
+     *   - t: 分类ID
+     *   - page: 页码
+     *   - h: 时间范围
+     *   - ids: 指定ID
+     *   - wd: 搜索词
+     *   - param: 附加参数(base64编码)
+     *   - cjflag: 采集标识
+     * @param string $html 预获取的HTML内容(可选)
+     * @return array 标准化返回格式
+     *   - code: 1=成功, 1001=请求失败, 1002=解析失败
+     *   - msg: 提示信息
+     *   - page: 分页信息 {page,pagecount,pagesize,recordcount,url}
+     *   - type: 分类列表 (ac=list时)
+     *   - data: 视频数据数组
+     */
     public function vod_xml($param,$html='')
     {
         $url_param = [];
@@ -377,80 +552,153 @@ class Collect extends Base {
         return $res;
     }
 
+    /**
+     * ============================================================
+     * JSON格式API采集 (JSON API Collection)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 从JSON格式的资源站API获取视频数据，解析并标准化为系统格式
+     * 这是苹果CMS新版API接口格式，比XML格式更简洁
+     *
+     * 【JSON接口格式】
+     * ```json
+     * {
+     *   "page": 1,
+     *   "pagecount": 100,
+     *   "limit": 20,
+     *   "total": 2000,
+     *   "list": [
+     *     {
+     *       "vod_id": 123,
+     *       "type_id": 1,
+     *       "vod_name": "视频名称",
+     *       "vod_pic": "封面地址",
+     *       "vod_remarks": "更新至第10集",
+     *       "vod_actor": "演员",
+     *       "vod_director": "导演",
+     *       "vod_content": "简介",
+     *       "dl": {"m3u8": "第1集$url1#第2集$url2"}
+     *     }
+     *   ],
+     *   "class": [{"type_id":1, "type_name":"电影"}]
+     * }
+     * ```
+     *
+     * 【与XML格式的区别】
+     * - JSON直接使用键值对，无需XML解析
+     * - 播放列表dl使用对象格式: {"播放源名": "地址"}
+     * - 分类绑定逻辑相同
+     *
+     * 【调用链路】
+     * vod() → vod_json() → checkCjUrl() → mac_curl_get() → json_decode()
+     *
+     * @param array $param 采集参数 (同vod_xml)
+     * @return array 标准化返回格式 (同vod_xml)
+     */
     public function vod_json($param)
     {
+        // ========== 第一步：构建请求URL ==========
+        // 将采集参数转换为资源站API的URL参数
         $url_param = [];
-        $url_param['ac'] = $param['ac'];
-        $url_param['t'] = $param['t'];
-        $url_param['pg'] = is_numeric($param['page']) ? $param['page'] : '';
-        $url_param['h'] = $param['h'];
-        $url_param['ids'] = $param['ids'];
-        $url_param['wd'] = $param['wd'];
+        $url_param['ac'] = $param['ac'];        // 接口动作: list=分类列表, videolist=视频列表
+        $url_param['t'] = $param['t'];          // type_id 分类ID
+        $url_param['pg'] = is_numeric($param['page']) ? $param['page'] : '';  // 页码
+        $url_param['h'] = $param['h'];          // 时间范围 (24小时内更新)
+        $url_param['ids'] = $param['ids'];      // 指定采集的视频ID，逗号分隔
+        $url_param['wd'] = $param['wd'];        // 关键词搜索
 
+        // 确保 ac 参数正确 (非 list 时统一为 videolist)
         if($param['ac']!='list'){
             $url_param['ac'] = 'videolist';
         }
 
-        $url = $param['cjurl'];
+        // 拼接完整的请求URL
+        $url = $param['cjurl'];  // 资源站API基础地址
         if(strpos($url,'?')===false){
-            $url .='?';
+            $url .='?';  // 添加查询字符串开始符
         }
         else{
-            $url .='&';
+            $url .='&';  // 已有参数，用 & 连接
         }
+        // http_build_query: 标准参数
+        // base64_decode($param['param']): 自定义附加参数 (在采集源配置中设置)
         $url .= http_build_query($url_param). base64_decode($param['param']);
+
+        // ========== 第二步：URL安全检查 ==========
+        // 防止采集本地地址 (127.0.0.1, localhost)
         $result = $this->checkCjUrl($url);
         if ($result['code'] > 1) {
-            return $result;
+            return $result;  // 检查失败，返回错误
         }
-        $html = mac_curl_get($url);
+        // todo 多线程调用点
+        // ========== 第三步：发起HTTP请求 ==========
+        $html = mac_curl_get($url);  // 使用 CURL 获取JSON响应
         if(empty($html)){
             return ['code'=>1001, 'msg'=>lang('model/collect/get_html_err') . ', url: ' . $url];
         }
-        $html = mac_filter_tags($html);
-        $json = json_decode($html,true);
+
+        // ========== 第四步：解析JSON数据 ==========
+        $html = mac_filter_tags($html);  // 过滤特殊字符
+        $json = json_decode($html,true);  // 解析为关联数组
         if(!$json){
+            // JSON解析失败，返回前15个字符用于调试
             return ['code'=>1002, 'msg'=>lang('model/collect/json_err') . ', url: ' . $url . ', response: ' . mb_substr($html, 0, 15)];
         }
 
+        // ========== 第五步：提取分页信息 ==========
         $array_page = [];
-        $array_page['page'] = $json['page'];
-        $array_page['pagecount'] = $json['pagecount'];
-        $array_page['pagesize'] = $json['limit'];
-        $array_page['recordcount'] = $json['total'];
-        $array_page['url'] = $url;
+        $array_page['page'] = $json['page'];           // 当前页码
+        $array_page['pagecount'] = $json['pagecount']; // 总页数
+        $array_page['pagesize'] = $json['limit'];      // 每页数量
+        $array_page['recordcount'] = $json['total'];   // 总记录数
+        $array_page['url'] = $url;                     // 请求的完整URL
 
-        $type_list = model('Type')->getCache('type_list');
-        $bind_list = config('bind');
+        // 加载本地分类和绑定配置
+        $type_list = model('Type')->getCache('type_list');  // 本地分类列表
+        $bind_list = config('bind');  // 分类绑定配置 (资源站分类ID → 本站分类ID)
 
+        // ========== 第六步：遍历视频列表数据 ==========
         $key = 0;
         $array_data = [];
         foreach($json['list'] as $key=>$v){
+            // 复制所有字段到结果数组
             $array_data[$key] = $v;
+
+            // ========== 分类绑定处理 ==========
+            // 根据 "资源站标识_分类ID" 查找本站绑定的分类ID
+            // 例如: "ckzy_1" → 本站分类ID 6
             $bind_key = $param['cjflag'] .'_'.$v['type_id'];
             if($bind_list[$bind_key] >0){
-                $array_data[$key]['type_id'] = $bind_list[$bind_key];
+                $array_data[$key]['type_id'] = $bind_list[$bind_key];  // 使用绑定的分类ID
             }
             else{
-                $array_data[$key]['type_id'] = 0;
+                $array_data[$key]['type_id'] = 0;  // 未绑定，设为0 (后续会跳过)
             }
 
+            // ========== 播放地址处理 ==========
+            // JSON格式的播放列表: {"m3u8": "第1集$url#第2集$url", "mp4": "..."}
             if(!empty($v['dl'])) {
-                //格式化地址与播放器
-                $array_from = [];
-                $array_url = [];
-                $array_server = [];
-                $array_note = [];
-                //videolist|list播放列表不同
+                $array_from = [];    // 播放源名称数组 (m3u8, mp4 等)
+                $array_url = [];     // 播放地址数组
+                $array_server = [];  // 服务器标识数组
+                $array_note = [];    // 备注数组
+
+                // 遍历每个播放源
                 foreach ($v['dl'] as $k2 => $v2) {
-                    $array_from[] = $k2;
-                    $urls = explode('#', $v2);
-                    $sorted_urls = $this->sortPlayUrls($urls);
-                    $array_url[] = implode('#', $sorted_urls);
-                    $array_server[] = 'no';
-                    $array_note[] = '';
+                    $array_from[] = $k2;  // 播放源名称 (如: m3u8)
+
+                    // 处理播放地址: "第1集$url#第2集$url#第3集$url"
+                    $urls = explode('#', $v2);  // 按 # 分割每集
+                    $sorted_urls = $this->sortPlayUrls($urls);  // 智能排序 (第1集, 第2集...)
+                    $array_url[] = implode('#', $sorted_urls);  // 重新用 # 连接
+
+                    $array_server[] = 'no';  // 服务器标识 (默认 no)
+                    $array_note[] = '';      // 备注为空
                 }
 
+                // 拼接多个播放源，使用 $$$ 分隔
+                // 结果格式: "m3u8$$$mp4"
                 $array_data[$key]['vod_play_from'] = implode('$$$', $array_from);
                 $array_data[$key]['vod_play_url'] = implode('$$$', $array_url);
                 $array_data[$key]['vod_play_server'] = implode('$$$', $array_server);
@@ -458,21 +706,53 @@ class Collect extends Base {
             }
         }
 
+        // ========== 第七步：提取分类列表 (仅当 ac=list 时) ==========
         $array_type = [];
         $key=0;
-        //分类列表
         if($param['ac'] == 'list'){
+            // 遍历资源站提供的分类数据
             foreach($json['class'] as $k=>$v){
-                $array_type[$key]['type_id'] = $v['type_id'];
-                $array_type[$key]['type_name'] = $v['type_name'];
+                $array_type[$key]['type_id'] = $v['type_id'];     // 资源站分类ID
+                $array_type[$key]['type_name'] = $v['type_name']; // 资源站分类名称
                 $key++;
             }
         }
 
+        // ========== 第八步：返回标准化结果 ==========
+        // code=1: 成功
+        // msg: 数据格式标识 (json)
+        // page: 分页信息
+        // type: 分类列表 (仅 ac=list 时有值)
+        // data: 视频数据列表
         $res = ['code'=>1, 'msg'=>'json', 'page'=>$array_page, 'type'=>$array_type, 'data'=>$array_data ];
         return $res;
     }
 
+    /**
+     * ============================================================
+     * 剧集URL排序 (Sort Episode URLs)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 对采集的播放地址按剧集编号排序
+     * 支持识别多种剧集命名格式：第1集、EP1、E1、1集、1话、1回
+     *
+     * 【处理逻辑】
+     * 1. 使用正则提取剧集编号
+     * 2. 以编号为key存入数组
+     * 3. 按key排序 (ksort)
+     * 4. 返回排序后的数组
+     *
+     * 【输入输出示例】
+     * 输入: ["第3集$url3", "第1集$url1", "第2集$url2"]
+     * 输出: ["第1集$url1", "第2集$url2", "第3集$url3"]
+     *
+     * 【调用位置】
+     * vod_xml() 和 vod_json() 中对播放地址列表排序
+     *
+     * @param array $urls 待排序的URL数组
+     * @return array 排序后的URL数组
+     */
     private function sortPlayUrls($urls) {
         $sorted = [];
         foreach ($urls as $url) {
@@ -519,14 +799,66 @@ class Collect extends Base {
         return ['pic' => $img_url_downloaded, 'msg' => $des];
     }
 
+    /**
+     * ============================================================
+     * 视频数据入库方法 (Video Data Insert/Update)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 采集模块的核心数据入库方法，负责将从资源站获取的视频数据处理后入库
+     * 支持新增和更新两种操作，根据配置规则(inrule/uprule)自动判断和处理
+     *
+     * 【核心功能】
+     * 1. 数据验证与清洗 (过滤、格式化、伪原创)
+     * 2. 播放地址处理 (验证播放器、过滤地址、合并更新)
+     * 3. 图片同步下载 (支持本地化)
+     * 4. 重复检测 (根据inrule规则查找已存在数据)
+     * 5. 新增/更新操作 (根据opt参数和uprule规则)
+     * 6. 自动翻页采集 (完成后自动跳转下一页)
+     *
+     * 【请求参数】
+     * @param array $param 采集参数
+     *   - opt              : 数据操作模式 (0=新增+更新, 1=仅新增, 2=仅更新)
+     *   - filter           : 地址过滤模式 (0=全部, 1=播放源, 2=下载源, 3=播放+下载)
+     *   - filter_from      : 过滤的播放源代码 (逗号分隔)
+     *   - filter_year      : 过滤年份 (逗号分隔)
+     *   - sync_pic_opt     : 图片同步选项 (0=全局, 1=开启, 2=关闭)
+     *   - ac               : 操作类型 (videolist=列表采集, cjsel=选中采集)
+     *   - page             : 当前页码
+     *
+     * @param array $data 资源站返回的数据 (由 vod_xml() 或 vod_json() 解析)
+     *   - page             : 分页信息 {page, pagecount, url}
+     *   - data             : 视频数据列表
+     *
+     * @param int $show 是否实时输出 (1=输出进度信息, 0=静默模式返回结果)
+     *
+     * 【配置文件】
+     * application/extra/maccms.php → collect.vod
+     * 关键配置：inrule(重复检测), uprule(更新字段), urlrole(地址合并)
+     *
+     * 【核心数据库操作】
+     * - 新增: model('Vod')->insert($v) → 第1145行
+     * - 更新: model('Vod')->where($where)->update($update) → 第1402行
+     *
+     * 【调用位置】
+     * application/admin/controller/Collect.php:844
+     *
+     * @return mixed
+     */
     public function vod_data($param,$data,$show=1)
     {
+        // ========== 第一步：输出进度信息 ==========
+        // 显示当前采集进度: 第X页/共Y页
         if($show==1) {
             mac_echo('[' . __FUNCTION__ . '] ' . lang('model/collect/data_tip1', [$data['page']['page'],$data['page']['pagecount'],$data['page']['url']]));
         }
 
+        // ========== 第二步：加载配置信息 ==========
+        // 加载采集配置 (来自 application/extra/maccms.php)
         $config = config('maccms.collect');
-        $config = $config['vod'];
+        $config = $config['vod'];  // 视频采集配置
+
+        // 图片同步配置 (优先使用采集源配置，否则使用全局配置)
         $config_sync_pic = $param['sync_pic_opt'] > 0 ? $param['sync_pic_opt'] : $config['pic'];
         $filter_year = !empty($param['filter_year']) ? $param['filter_year'] : '';
         $filter_year_list = $filter_year ? get_array_unique_id_list(explode(',', $filter_year)) : [];
@@ -547,49 +879,81 @@ class Collect extends Base {
         $pse_area = mac_txt_explain($config['areawords'], true);
         $pse_lang = mac_txt_explain($config['langwords'], true);
 
+        // ========== 第三步：遍历每条视频数据 ==========
+        // 逐条处理从资源站获取的视频列表
         foreach($data['data'] as $k=>$v){
-            $color='red';
-            $des='';
-            $msg='';
-            $tmp='';
+            // 初始化结果变量
+            $color='red';      // 输出颜色 (red=失败, green=成功, orange=警告)
+            $des='';           // 描述信息
+            $msg='';           // 消息内容 (如图片下载结果)
+            $tmp='';           // 临时变量
 
+            // ========== 数据验证：分类ID检查 ==========
+            // type_id=0 表示该视频的分类未在 bind.php 中绑定到本地分类
+            // 未绑定的数据将被跳过，不会入库
             if ($v['type_id'] ==0) {
                 $des = lang('model/collect/type_err');
-            } elseif (empty($v['vod_name'])) {
+            }
+            // ========== 数据验证：视频名称检查 ==========
+            // 视频名称为空，无法入库
+            elseif (empty($v['vod_name'])) {
                 $des = lang('model/collect/name_err');
-            } elseif (mac_array_filter($filter_arr,$v['vod_name']) !==false) {
+            }
+            // ========== 数据验证：关键词过滤检查 ==========
+            // 检查视频名称是否包含配置的过滤关键词
+            // 过滤词配置位置: 采集参数配置 → 过滤关键字 (逗号分隔)
+            elseif (mac_array_filter($filter_arr,$v['vod_name']) !==false) {
                 $des = lang('model/collect/name_in_filter_err');
-            } elseif ($filter_year_list && !in_array(intval($v['vod_year']), $filter_year_list)) {
+            }
+            // ========== 数据验证：年份过滤检查 ==========
+            // 如果配置了年份过滤 (如只采集2020-2023年的视频)
+            // 不在指定年份范围内的视频将被跳过
+            elseif ($filter_year_list && !in_array(intval($v['vod_year']), $filter_year_list)) {
                 // 采集时，过滤年份
                 // https://github.com/magicblack/maccms10/issues/1057
                 $color = 'orange';
                 $des = 'year [' . intval($v['vod_year']) . '] not in: ' . join(',', $filter_year_list);
-            } else {
+            }
+            // ========== 数据验证通过，开始处理 ==========
+            else {
+                // 移除资源站的ID，使用本地自增ID
                 unset($v['vod_id']);
 
+                // ========== 数据清洗：过滤HTML标签 ==========
+                // 遍历所有字段，清理HTML标签(XSS防护)
+                // 排除: vod_content(简介内容)、vod_plot_detail(剧情内容)
                 foreach($v as $k2=>$v2){
                     if(strpos($k2,'_content')===false && $k2!=='vod_plot_detail') {
-                        $v[$k2] = strip_tags($v2);
+                        $v[$k2] = strip_tags($v2);  // 移除HTML标签
                     }
                 }
 
+                // ========== 数据补全：父级分类 ==========
+                // 设置type_id_1为该分类的父分类ID
+                // 例如: 分类"动作片"(id=6)的父分类是"电影"(id=1)
                 $v['type_id_1'] = intval($type_list[$v['type_id']]['type_pid']);
+
+                // ========== 数据补全：拼音和首字母 ==========
+                // 如果资源站未提供拼音，则自动生成
                 if(empty($v['vod_en'])){
-                    $v['vod_en'] = Pinyin::get($v['vod_name']);
+                    $v['vod_en'] = Pinyin::get($v['vod_name']);  // "肖申克的救赎" → "xiaoshenkdejiushu"
                 }
+                // 如果资源站未提供首字母，则取拼音首字母
                 if(empty($v['vod_letter'])){
-                    $v['vod_letter'] = strtoupper(substr($v['vod_en'],0,1));
+                    $v['vod_letter'] = strtoupper(substr($v['vod_en'],0,1));  // "xiaoshenkdejiushu" → "X"
                 }
+
+                // ========== 时间戳处理 ==========
                 // 使用资源站的添加时间，更新时间保持当前
                 // https://github.com/magicblack/maccms10/issues/780
                 if (empty($v['vod_time_add']) || strlen($v['vod_time_add']) != 10) {
-                    $v['vod_time_add'] = time();
+                    $v['vod_time_add'] = time();  // 添加时间：首次入库时间
                 }
                 // 支持外部自定义修改时间
                 // https://github.com/magicblack/maccms10/issues/862
-                $v['vod_time'] = time();
+                $v['vod_time'] = time();  // 更新时间：每次入库/更新时间
                 if (!empty($v['vod_time_update']) && strlen($v['vod_time_update']) == 10) {
-                    $v['vod_time'] = (int)$v['vod_time_update'];
+                    $v['vod_time'] = (int)$v['vod_time_update'];  // 使用资源站指定的更新时间
                 }
 
                 // ========== 审核状态设置 (菜单: 视频-未审核视频) ==========
@@ -604,31 +968,38 @@ class Collect extends Base {
                 if(!empty($v['vod_status'])) {
                     $v['vod_status'] = intval($v['vod_status']);
                 }
-                $v['vod_year'] = intval($v['vod_year']);
-                $v['vod_level'] = intval($v['vod_level']);
-                $v['vod_hits'] = intval($v['vod_hits']);
-                $v['vod_hits_day'] = intval($v['vod_hits_day']);
-                $v['vod_hits_week'] = intval($v['vod_hits_week']);
-                $v['vod_hits_month'] = intval($v['vod_hits_month']);
-                $v['vod_stint_play'] = intval($v['vod_stint_play']);
-                $v['vod_stint_down'] = intval($v['vod_stint_down']);
 
-                $v['vod_total'] = intval($v['vod_total']);
-                $v['vod_serial'] = intval($v['vod_serial']);
-                $v['vod_isend'] = intval($v['vod_isend']);
-                $v['vod_up'] = intval($v['vod_up']);
-                $v['vod_down'] = intval($v['vod_down']);
+                // ========== 数据类型转换：整型字段 ==========
+                // 确保所有数值型字段为整数，防止类型错误
+                $v['vod_year'] = intval($v['vod_year']);              // 年份
+                $v['vod_level'] = intval($v['vod_level']);            // 推荐级别
+                $v['vod_hits'] = intval($v['vod_hits']);              // 总点击数
+                $v['vod_hits_day'] = intval($v['vod_hits_day']);      // 日点击数
+                $v['vod_hits_week'] = intval($v['vod_hits_week']);    // 周点击数
+                $v['vod_hits_month'] = intval($v['vod_hits_month']);  // 月点击数
+                $v['vod_stint_play'] = intval($v['vod_stint_play']);  // 播放限制
+                $v['vod_stint_down'] = intval($v['vod_stint_down']);  // 下载限制
 
-                $v['vod_score'] = floatval($v['vod_score']);
-                $v['vod_score_all'] = intval($v['vod_score_all']);
-                $v['vod_score_num'] = intval($v['vod_score_num']);
+                $v['vod_total'] = intval($v['vod_total']);            // 总集数
+                $v['vod_serial'] = intval($v['vod_serial']);          // 连载数 (更新到第几集)
+                $v['vod_isend'] = intval($v['vod_isend']);            // 是否完结 (0=连载中, 1=已完结)
+                $v['vod_up'] = intval($v['vod_up']);                  // 顶数量
+                $v['vod_down'] = intval($v['vod_down']);              // 踩数量
 
+                // ========== 数据类型转换：浮点型字段 ==========
+                $v['vod_score'] = floatval($v['vod_score']);          // 平均评分
+                $v['vod_score_all'] = intval($v['vod_score_all']);    // 总评分
+                $v['vod_score_num'] = intval($v['vod_score_num']);    // 评分人数
+
+                // ========== 文本字段格式化 ==========
+                // 合并视频分类和类型名称
                 $v['vod_class'] = mac_txt_merge($v['vod_class'],$v['type_name']);
 
-                $v['vod_actor'] = mac_format_text($v['vod_actor'], true);
-                $v['vod_director'] = mac_format_text($v['vod_director'], true);
-                $v['vod_class'] = mac_format_text($v['vod_class'], true);
-                $v['vod_tag'] = mac_format_text($v['vod_tag'], true);
+                // 格式化文本字段：去除多余空格和逗号，统一分隔符
+                $v['vod_actor'] = mac_format_text($v['vod_actor'], true);       // 演员列表
+                $v['vod_director'] = mac_format_text($v['vod_director'], true); // 导演列表
+                $v['vod_class'] = mac_format_text($v['vod_class'], true);       // 分类标签
+                $v['vod_tag'] = mac_format_text($v['vod_tag'], true);           // 标签列表
 
                 // ========== 分集剧情数据处理 (菜单: 视频-有分集剧情) ==========
                 // 采集的剧情数据格式: "第1集标题$$$第2集标题$$$第3集标题"
@@ -646,9 +1017,14 @@ class Collect extends Base {
                 if(!empty($v['vod_plot_detail'])){
                     $v['vod_plot_detail'] = trim($v['vod_plot_detail'],'$$$');
                 }
+                // 如果有连载数但未设置完结状态，则标记为连载中
                 if(empty($v['vod_isend']) && !empty($v['vod_serial'])){
                     $v['vod_isend'] = 0;
                 }
+
+                // ========== 随机数据生成：点击量 ==========
+                // 配置位置: 采集参数配置 → 点击初始值
+                // 为采集的视频生成随机初始点击量，让新数据看起来更真实
                 if($config['hits_start']>0 && $config['hits_end']>0) {
                     $v['vod_hits'] = rand($config['hits_start'], $config['hits_end']);
                     $v['vod_hits_day'] = rand($config['hits_start'], $config['hits_end']);
@@ -656,107 +1032,184 @@ class Collect extends Base {
                     $v['vod_hits_month'] = rand($config['hits_start'], $config['hits_end']);
                 }
 
+                // ========== 随机数据生成：顶踩数量 ==========
+                // 配置位置: 采集参数配置 → 顶踩初始值
+                // 为采集的视频生成随机顶踩数量
                 if($config['updown_start']>0 && $config['updown_end']){
                     $v['vod_up'] = rand($config['updown_start'], $config['updown_end']);
                     $v['vod_down'] = rand($config['updown_start'], $config['updown_end']);
                 }
 
+                // ========== 随机数据生成：评分 ==========
+                // 配置位置: 采集参数配置 → 是否生成评分
+                // 自动生成随机评分数据，让视频看起来更可信
                 if($config['score']==1) {
-                    $v['vod_score_num'] = rand(1, 1000);
-                    $v['vod_score_all'] = $v['vod_score_num'] * rand(1, 10);
-                    $v['vod_score'] = round($v['vod_score_all'] / $v['vod_score_num'], 1);
+                    $v['vod_score_num'] = rand(1, 1000);               // 评分人数
+                    $v['vod_score_all'] = $v['vod_score_num'] * rand(1, 10);  // 总评分
+                    $v['vod_score'] = round($v['vod_score_all'] / $v['vod_score_num'], 1);  // 平均分
                 }
 
+                // ========== 伪原创处理：视频名称 (配置: 采集参数配置 → 伪原创) ==========
+                // psename=1 时，对视频名称进行同义词替换
+                // 例如: "肖申克的救赎" → "肖申克的救赎[高清版]"
                 if ($config['psename'] == 1) {
                     $v['vod_name'] = mac_rep_pse_syn($pse_name, $v['vod_name']);
                 }
+
+                // ========== 伪原创处理：随机插入词 ==========
+                // psernd=1 时，在内容中随机插入干扰词
+                // 用途: 避免内容完全相同导致搜索引擎判定为重复
                 if ($config['psernd'] == 1) {
                     $v['vod_content'] = mac_rep_pse_rnd($pse_rnd, $v['vod_content']);
                 }
+
+                // ========== 伪原创处理：同义词替换 ==========
+                // psesyn=1 时，使用同义词替换内容
+                // 例如: "非常好看" → "特别精彩"
                 if ($config['psesyn'] == 1) {
                     $v['vod_content'] = mac_rep_pse_syn($pse_syn, $v['vod_content']);
                 }
+
+                // ========== 伪原创处理：播放源名称 ==========
+                // pseplayer=1 时，替换播放源名称
+                // 例如: "m3u8" → "高清播放"
                 if ($config['pseplayer'] == 1) {
                     $v['vod_play_from'] = mac_rep_pse_syn($pse_player, $v['vod_play_from']);
                 }
+
+                // ========== 伪原创处理：地区名称 ==========
+                // 例如: "美国" → "USA"
                 if ($config['psearea'] == 1) {
                     $v['vod_area'] = mac_rep_pse_syn($pse_area, $v['vod_area']);
                 }
+
+                // ========== 伪原创处理：语言名称 ==========
+                // 例如: "中文" → "汉语"
                 if ($config['pselang'] == 1) {
                     $v['vod_lang'] = mac_rep_pse_syn($pse_lang, $v['vod_lang']);
                 }
 
+                // ========== 自动生成简介 ==========
+                // 如果资源站未提供简介，则从内容中截取前100字作为简介
                 if(empty($v['vod_blurb'])){
                     $v['vod_blurb'] = mac_substring( strip_tags($v['vod_content']) ,100);
                 }
 
+                // ========== 重复检测规则配置 (inrule - Insert Rule) ==========
+                // 配置位置: 采集参数配置 → 入库重复规则
+                // 功能说明: 根据 inrule 配置构建查询条件，检测数据库中是否已存在相同视频
+                // 规则字母说明:
+                //   a = 视频名称 (vod_name)
+                //   b = 分类ID (type_id)
+                //   c = 年份 (vod_year)
+                //   d = 地区 (vod_area)
+                //   e = 语言 (vod_lang)
+                //   f = 演员 (vod_actor) - 使用模糊匹配
+                //   g = 导演 (vod_director)
+                //   h = 豆瓣ID (vod_douban_id)
+                // 例如: inrule="a,b,c" 表示同时满足 名称+分类+年份 相同才判定为重复
                 $where = [];
 
+                // inrule 包含 'a' - 按视频名称检测重复
                 if (strpos($config['inrule'], 'a')!==false) {
                     $where['vod_name'] = mac_filter_xss($v['vod_name']);
                 }
+                // blend 标记: 演员+导演混合查询标记 (后续特殊处理)
                 $blend=false;
+                // inrule 包含 'b' - 按分类ID检测重复
                 if (strpos($config['inrule'], 'b')!==false) {
                     $where['type_id'] = $v['type_id'];
                 }
+                // inrule 包含 'c' - 按年份检测重复
                 if (strpos($config['inrule'], 'c')!==false) {
                     $where['vod_year'] = $v['vod_year'];
                 }
+                // inrule 包含 'd' - 按地区检测重复
                 if (strpos($config['inrule'], 'd')!==false) {
                     $where['vod_area'] = $v['vod_area'];
                 }
+                // inrule 包含 'e' - 按语言检测重复
                 if (strpos($config['inrule'], 'e')!==false) {
                     $where['vod_lang'] = $v['vod_lang'];
                 }
+                // inrule 包含 'f' - 按演员检测重复 (使用模糊匹配)
                 $search_actor_id_list = [];
                 if (strpos($config['inrule'], 'f')!==false) {
+                    // 使用 LIKE 模糊匹配演员名称 (支持多个演员用逗号分隔)
                     $where['vod_actor'] = ['like', mac_like_arr(mac_filter_xss($v['vod_actor'])), 'OR'];
+                    // 使用 VodSearch 搜索索引优化查询性能
                     if ($vod_search_enabled) {
                         $search_actor_id_list = $vod_search->getResultIdList(mac_filter_xss($v['vod_actor']), 'vod_actor', true);
                         $search_actor_id_list = empty($search_actor_id_list) ? [0] : $search_actor_id_list;
                     }
                 }
+                // inrule 包含 'g' - 按导演检测重复
                 if (strpos($config['inrule'], 'g')!==false) {
                     $where['vod_director'] = mac_filter_xss($v['vod_director']);
                 }
+                // inrule 包含 'h' - 按豆瓣ID检测重复 (最精准的匹配方式)
                 if (strpos($config['inrule'], 'h')!==false) {
                     $where['vod_douban_id'] = intval($v['vod_douban_id']);
                 }
 
+                // ========== 演员+导演混合查询优化 (blend) ==========
+                // 当同时配置了演员和导演检测时，使用特殊的 OR 查询逻辑
+                // 匹配条件: (导演匹配) OR (演员匹配) - 满足其一即可
+                // 用途: 避免因演员/导演名称差异导致漏检重复数据
                 if(!empty($where['vod_actor']) && !empty($where['vod_director'])){
                     $blend = true;
+                    // 将演员和导演条件保存到全局变量，后续构建复杂查询
                     $GLOBALS['blend'] = [
                         'vod_actor'    => $where['vod_actor'],
                         'vod_director' => $where['vod_director'],
                     ];
-                    // 结果太大时，筛选更耗时。仅在结果数量较小时，才加入
+                    // ===== VodSearch 性能优化 =====
+                    // 结果太大时，筛选更耗时。仅在结果数量较小时，才加入 IN 条件
+                    // 原理: 使用搜索索引预筛选，减少数据库全表扫描
                     $GLOBALS['blend']['vod_id'] = null;
                     if ($vod_search_enabled && count($search_actor_id_list) <= $vs_max_id_count) {
                         $GLOBALS['blend']['vod_id'] = ['IN', $search_actor_id_list];
                     }
+                    // 从 $where 中移除演员和导演条件 (后续在 blend 查询中处理)
                     unset($where['vod_actor'],$where['vod_director']);
                 }
 
+                // ========== 播放/下载地址验证和过滤 ==========
+                // 功能说明: 验证播放源是否在系统配置中存在，过滤无效数据
+                // 配置文件: application/extra/vodplayer.php (播放器配置)
+                //          application/extra/voddowner.php (下载工具配置)
+
+                // 初始化播放/下载地址为空字符串 (防止undefined)
                 if(empty($v['vod_play_url'])){
                     $v['vod_play_url'] = '';
                 }
                 if(empty($v['vod_down_url'])){
                     $v['vod_down_url'] = '';
                 }
-                //验证地址
-                $cj_play_from_arr = explode('$$$',$v['vod_play_from'] );
-                $cj_play_url_arr = explode('$$$',$v['vod_play_url']);
-                $cj_play_server_arr = explode('$$$',$v['vod_play_server']);
-                $cj_play_note_arr = explode('$$$',$v['vod_play_note']);
-                $cj_down_from_arr = explode('$$$',$v['vod_down_from'] );
-                $cj_down_url_arr = explode('$$$',$v['vod_down_url']);
-                $cj_down_server_arr = explode('$$$',$v['vod_down_server']);
-                $cj_down_note_arr = explode('$$$',$v['vod_down_note']);
 
+                // ===== 解析播放/下载地址数据结构 =====
+                // 数据格式: 多个播放源用 $$$ 分隔
+                // 例如: vod_play_from = "m3u8$$$mp4$$$flv"
+                //      vod_play_url  = "第1集$url1#第2集$url2$$$第1集$url3#第2集$url4$$$..."
+                $cj_play_from_arr = explode('$$$',$v['vod_play_from'] );     // 播放源名称数组
+                $cj_play_url_arr = explode('$$$',$v['vod_play_url']);        // 播放地址数组
+                $cj_play_server_arr = explode('$$$',$v['vod_play_server']);  // 服务器标识数组
+                $cj_play_note_arr = explode('$$$',$v['vod_play_note']);      // 备注数组
+                $cj_down_from_arr = explode('$$$',$v['vod_down_from'] );     // 下载源名称数组
+                $cj_down_url_arr = explode('$$$',$v['vod_down_url']);        // 下载地址数组
+                $cj_down_server_arr = explode('$$$',$v['vod_down_server']);  // 下载服务器数组
+                $cj_down_note_arr = explode('$$$',$v['vod_down_note']);      // 下载备注数组
 
+                // ===== 播放地址验证和过滤 =====
+                // $collect_filter 用于保存符合 filter_from 参数的播放源数据
+                // 用途: 当需要只采集特定播放源时 (如只采集m3u8)，将数据保存到此数组
                 $collect_filter=[];
+
+                // 遍历所有播放源，逐个验证
                 foreach($cj_play_from_arr as $kk=>$vv){
+                    // ===== 验证1: 播放源名称是否为空 =====
                     if(empty($vv)){
+                        // 播放源名称为空，移除该组数据
                         unset($cj_play_from_arr[$kk]);
                         unset($cj_play_url_arr[$kk]);
                         unset($cj_play_server_arr[$kk]);
@@ -764,6 +1217,9 @@ class Collect extends Base {
                         continue;
                     }
 
+                    // ===== 验证2: 播放源是否在系统配置中存在 =====
+                    // $players 来自 config('vodplayer')，包含系统支持的所有播放器
+                    // 如果播放源不在配置中，说明系统无法播放，需要移除
                     if(empty($players[$vv])){
                         unset($cj_play_from_arr[$kk]);
                         unset($cj_play_url_arr[$kk]);
@@ -772,12 +1228,20 @@ class Collect extends Base {
                         continue;
                     }
 
+                    // ===== 数据清理：移除地址末尾的 # 符号 =====
                     $cj_play_url_arr[$kk] = rtrim($cj_play_url_arr[$kk],'#');
                     $cj_play_server_arr[$kk] = $cj_play_server_arr[$kk];
                     $cj_play_note_arr[$kk] = $cj_play_note_arr[$kk];
 
+                    // ===== 播放源过滤 (可选功能) =====
+                    // 配置位置: 采集参数 → 地址过滤模式 + 过滤代码
+                    // filter > 0 表示启用过滤功能
+                    // filter_from 包含需要过滤的播放源代码 (逗号分隔)
+                    // 例如: filter_from="m3u8,mp4" 表示只采集这两种播放源
                     if($param['filter'] > 0){
+                        // 检查当前播放源是否在过滤列表中
                         if(strpos(','.$param['filter_from'].',',$vv)!==false) {
+                            // 符合过滤条件，保存到 collect_filter 数组
                             $collect_filter['play'][$param['filter']]['cj_play_from_arr'][$kk] = $vv;
                             $collect_filter['play'][$param['filter']]['cj_play_url_arr'][$kk] = $cj_play_url_arr[$kk];
                             $collect_filter['play'][$param['filter']]['cj_play_server_arr'][$kk] = $cj_play_server_arr[$kk];
@@ -785,7 +1249,10 @@ class Collect extends Base {
                         }
                     }
                 }
+
+                // ===== 下载地址验证和过滤 (逻辑同播放地址) =====
                 foreach($cj_down_from_arr as $kk=>$vv){
+                    // 验证下载源名称是否为空
                     if(empty($vv)){
                         unset($cj_down_from_arr[$kk]);
                         unset($cj_down_url_arr[$kk]);
@@ -793,6 +1260,8 @@ class Collect extends Base {
                         unset($cj_down_note_arr[$kk]);
                         continue;
                     }
+                    // 验证下载源是否在系统配置中存在
+                    // $downers 来自 config('voddowner')
                     if(empty($downers[$vv])){
                         unset($cj_down_from_arr[$kk]);
                         unset($cj_down_url_arr[$kk]);
@@ -801,10 +1270,12 @@ class Collect extends Base {
                         continue;
                     }
 
+                    // 数据清理
                     $cj_down_url_arr[$kk] = rtrim($cj_down_url_arr[$kk]);
                     $cj_down_server_arr[$kk] = $cj_down_server_arr[$kk];
                     $cj_down_note_arr[$kk] = $cj_down_note_arr[$kk];
 
+                    // 下载源过滤 (与播放源过滤逻辑相同)
                     if($param['filter'] > 0){
                         if(strpos(','.$param['filter_from'].',',$vv)!==false) {
                             $collect_filter['down'][$param['filter']]['cj_down_from_arr'][$kk] = $vv;
@@ -814,6 +1285,10 @@ class Collect extends Base {
                         }
                     }
                 }
+
+                // ===== 重新组装播放/下载地址数据 =====
+                // 将验证后的数组重新用 $$$ 连接，更新到 $v 数组
+                // 过滤掉的无效播放源已被 unset，这里只保留有效数据
                 $v['vod_play_from'] = (string)join('$$$', (array)$cj_play_from_arr);
                 $v['vod_play_url'] = (string)join('$$$', (array)$cj_play_url_arr);
                 $v['vod_play_server'] = (string)join('$$$', (array)$cj_play_server_arr);
@@ -823,28 +1298,48 @@ class Collect extends Base {
                 $v['vod_down_server'] = (string)join('$$$', (array)$cj_down_server_arr);
                 $v['vod_down_note'] = (string)join('$$$', (array)$cj_down_note_arr);
 
+                // ========== 第八步：查询数据库判断是新增还是更新 ==========
+                // 根据前面构建的 $where 条件和 inrule 规则查询数据库
+                // 如果找到匹配的记录，则为更新操作；否则为新增操作
                 if($blend===false){
+                    // ===== 普通查询 =====
+                    // blend=false 表示没有使用演员+导演混合查询
+                    // 直接使用 $where 条件查询
                     $info = model('Vod')->where($where)->find();
                 }
                 else{
+                    // ===== 演员+导演混合查询 (blend) =====
+                    // blend=true 表示同时配置了演员(f)和导演(g)检测
+                    // 使用复杂的 OR 查询逻辑: (导演匹配) OR (演员匹配)
+                    // $GLOBALS['blend'] 在第1162行设置
                     $info = model('Vod')->where($where)
                         ->where(function($query) {
+                            // 导演匹配条件
                             $query->where('vod_director',$GLOBALS['blend']['vod_director']);
+                            // 演员匹配条件 (使用 whereOr)
                             if (!empty($GLOBALS['blend']['vod_id'])) {
+                                // 使用 VodSearch 搜索索引优化: IN (id1, id2, id3)
                                 $query->whereOr('vod_id', $GLOBALS['blend']['vod_id']);
                             } else {
+                                // 使用 LIKE 模糊匹配: vod_actor LIKE '%演员1%' OR vod_actor LIKE '%演员2%'
                                 $query->whereOr('vod_actor', $GLOBALS['blend']['vod_actor']);
                             }
                         })
                         ->find();
                 }
+
+                // ========== 自动生成TAG标签 ==========
+                // 配置位置: 采集参数配置 → 自动生成TAG
+                // 条件: 1) 配置开启 2) 采集数据无TAG 3) 数据库记录无TAG
+                // 从视频名称和简介中提取关键词作为TAG
                 // 优化自动生成TAG https://github.com/magicblack/maccms10/issues/1178
                 if ($config['tag'] == 1 && empty($v['vod_tag']) && empty($info['vod_tag'])) {
                     $v['vod_tag'] = mac_filter_xss(mac_get_tag($v['vod_name'], $v['vod_content']));
                 }
 
+                // ========== 第九步：执行新增或更新操作 ==========
                 if (!$info) {
-                    // 新增
+                    // ========== 数据库中不存在，执行新增操作 ==========
                     if ($param['opt'] == 2) {
                         $des= lang('model/collect/not_check_add');
                     } else {
@@ -892,11 +1387,17 @@ class Collect extends Base {
                         $des = lang('model/collect/not_check_update');
                     }
                     else {
+                        // ========== 执行更新操作准备 ==========
+                        // 移除添加时间字段，更新操作不应修改此字段
                         unset($v['vod_time_add']);
 
-                        $update = [];
-                        $ec=false;
+                        $update = [];  // 待更新的字段数组
+                        $ec=false;     // 更新标记：是否有字段需要更新
 
+                        // ========== 播放源过滤处理 ==========
+                        // filter=1: 仅播放源过滤
+                        // filter=3: 播放源+下载源过滤
+                        // 使用过滤后的数据替换原始采集数据
                         if($param['filter'] ==1 || $param['filter']==3){
                             $cj_play_from_arr = $collect_filter['play'][$param['filter']]['cj_play_from_arr'];
                             $cj_play_url_arr = $collect_filter['play'][$param['filter']]['cj_play_url_arr'];
@@ -908,6 +1409,9 @@ class Collect extends Base {
                             $cj_down_note_arr = $collect_filter['down'][$param['filter']]['cj_down_note_arr'];
                         }
 
+                        // ========== 更新规则 uprule='a' : 更新播放地址 ==========
+                        // 配置位置: 采集参数配置 → 数据更新规则 → 播放地址
+                        // 功能: 将采集的新播放地址合并到现有数据中
                         if (strpos(',' . $config['uprule'], 'a')!==false && !empty($v['vod_play_from'])) {
                             $old_play_from = $info['vod_play_from'];
                             $old_play_url = $info['vod_play_url'];
@@ -970,6 +1474,10 @@ class Collect extends Base {
                             }
                         }
 
+                        // ========== 更新规则 uprule='b' : 更新下载地址 ==========
+                        // 配置位置: 采集参数配置 → 数据更新规则 → 下载地址
+                        // 功能: 将采集的新下载地址合并到现有数据中
+                        // 处理逻辑与播放地址相同
                         $ec=false;
                         if (strpos(',' . $config['uprule'], 'b')!==false && !empty($v['vod_down_from'])) {
                             $old_down_from = $info['vod_down_from'];

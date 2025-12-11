@@ -51,7 +51,20 @@
  * @package     app\extra
  */
 return array (
-  'dplayer' =>
+  'dbm3u8' => 
+  array (
+    'status' => '1',
+    'from' => 'dbm3u8',
+    'show' => '豆瓣',
+    'des' => 'dbm3u8',
+    'target' => '_self',
+    'ps' => '0',
+    'parse' => 'https://dbzy8.com:699/?url=',
+    'sort' => '10000',
+    'tip' => 'dbm3u8',
+    'id' => 'dbm3u8',
+  ),
+  'dplayer' => 
   array (
     'status' => '1',
     'from' => 'dplayer',
@@ -64,7 +77,7 @@ return array (
     'tip' => '无需安装任何插件',
     'id' => 'dplayer',
   ),
-  'videojs' =>
+  'videojs' => 
   array (
     'status' => '1',
     'sort' => '907',
@@ -76,7 +89,7 @@ return array (
     'tip' => '无需安装任何插件',
     'id' => 'videojs',
   ),
-  'iva' =>
+  'iva' => 
   array (
     'status' => '1',
     'from' => 'iva',
@@ -89,7 +102,7 @@ return array (
     'tip' => '无需安装任何插件',
     'id' => 'iva',
   ),
-  'iframe' =>
+  'iframe' => 
   array (
     'status' => '1',
     'from' => 'iframe',
@@ -101,7 +114,7 @@ return array (
     'tip' => '无需安装任何插件',
     'id' => 'iframe',
   ),
-  'link' =>
+  'link' => 
   array (
     'status' => '1',
     'sort' => '904',
@@ -113,7 +126,7 @@ return array (
     'tip' => '无需安装任何插件',
     'id' => 'link',
   ),
-  'swf' =>
+  'swf' => 
   array (
     'status' => '1',
     'sort' => '903',
@@ -125,7 +138,7 @@ return array (
     'tip' => '无需安装任何插件',
     'id' => 'swf',
   ),
-  'flv' =>
+  'flv' => 
   array (
     'status' => '1',
     'from' => 'flv',
