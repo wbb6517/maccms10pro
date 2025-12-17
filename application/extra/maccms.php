@@ -201,7 +201,7 @@ return array (
   ),
   'interface' => 
   array (
-    'status' => 0,
+    'status' => '0',
     'pass' => '5RI8CLIV5YD46Q5G',
     'vodtype' => '动作片=动作',
     'arttype' => '头条=头条',
