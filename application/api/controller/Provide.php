@@ -1,23 +1,177 @@
 <?php
+/**
+ * 数据提供API控制器 (Data Provide API Controller)
+ * ============================================================
+ *
+ * 【文件说明】
+ * 为第三方采集系统提供标准化数据接口
+ * 是苹果CMS作为数据源被其他站点采集时的核心API
+ * 支持JSON和XML两种输出格式，兼容主流采集软件
+ *
+ * 【主要功能】
+ * 1. 视频数据提供 (vod)  - 最常用，支持XML/JSON双格式
+ * 2. 文章数据提供 (art)  - JSON格式
+ * 3. 演员数据提供 (actor) - JSON格式
+ * 4. 角色数据提供 (role)  - JSON格式
+ * 5. 漫画数据提供 (manga) - 支持XML/JSON双格式
+ * 6. 网站数据提供 (website) - JSON格式
+ *
+ * 【访问路径】
+ * GET api.php/provide/vod     → 视频数据
+ * GET api.php/provide/art     → 文章数据
+ * GET api.php/provide/actor   → 演员数据
+ * GET api.php/provide/role    → 角色数据
+ * GET api.php/provide/manga   → 漫画数据
+ * GET api.php/provide/website → 网站数据
+ *
+ * 【公共参数说明】
+ * ┌────────────┬──────────────────────────────────────────────┐
+ * │ 参数名      │ 说明                                          │
+ * ├────────────┼──────────────────────────────────────────────┤
+ * │ ac         │ 动作类型: list(列表)/videolist(详细)/detail    │
+ * │ at         │ 输出格式: xml/json (默认json)                  │
+ * │ t          │ 分类ID筛选                                     │
+ * │ pg         │ 页码 (默认1)                                   │
+ * │ pagesize   │ 每页数量 (最大100)                             │
+ * │ h          │ 时间范围，单位小时 (如 h=24 表示24小时内)       │
+ * │ ids        │ 指定ID列表，逗号分隔                           │
+ * │ wd         │ 搜索关键词                                     │
+ * └────────────┴──────────────────────────────────────────────┘
+ *
+ * 【配置位置】
+ * application/extra/maccms.php → api.vod/art/actor/role/manga/website
+ *
+ * 【各API配置项】
+ * ┌─────────────┬─────────────────────────────────────────────┐
+ * │ 配置项       │ 说明                                         │
+ * ├─────────────┼─────────────────────────────────────────────┤
+ * │ status      │ API开关: 0=关闭, 1=开启                       │
+ * │ charge      │ 收费模式: 0=免费, 1=需IP认证                   │
+ * │ auth        │ IP/域名白名单 (#分隔)                         │
+ * │ cachetime   │ 缓存时间(秒)，0=不缓存                        │
+ * │ pagesize    │ 默认分页大小                                  │
+ * │ typefilter  │ 分类过滤，只输出指定分类 (逗号分隔)            │
+ * │ datafilter  │ 数据过滤SQL条件                               │
+ * │ from        │ 播放源过滤 (仅vod)                            │
+ * │ imgurl      │ 图片域名前缀                                  │
+ * └─────────────┴─────────────────────────────────────────────┘
+ *
+ * 【认证流程】
+ * 1. 检查 status 开关
+ * 2. 若 charge=1，验证请求IP是否在 auth 白名单
+ * 3. 支持域名自动DNS解析
+ *
+ * 【缓存机制】
+ * 缓存键格式: {cache_flag}_api_{type}_{md5(params)}
+ * cachetime > 0 时启用缓存
+ *
+ * 【XML输出格式】(苹果CMS标准)
+ * <?xml version="1.0" encoding="utf-8"?>
+ * <rss version="5.1">
+ *     <list page="1" pagecount="10" pagesize="20" recordcount="200">
+ *         <video>...</video>
+ *     </list>
+ *     <class>
+ *         <ty id="1">电影</ty>
+ *     </class>
+ * </rss>
+ *
+ * 【相关文件】
+ * - application/common/model/Vod.php   : 视频模型
+ * - application/common/model/Art.php   : 文章模型
+ * - application/common/model/Actor.php : 演员模型
+ * - application/common/model/Role.php  : 角色模型
+ * - application/common/model/Manga.php : 漫画模型
+ * - application/common/model/Website.php : 网站模型
+ *
+ * ============================================================
+ */
 namespace app\api\controller;
 use think\Controller;
 use think\Cache;
 
 class Provide extends Base
 {
+    /**
+     * 请求参数存储
+     * 存储经过 trim 和 urldecode 处理后的所有请求参数
+     * @var array
+     */
     var $_param;
 
+    /**
+     * 构造函数
+     * 初始化请求参数，对所有输入进行预处理
+     */
     public function __construct()
     {
         parent::__construct();
+        // 获取所有请求参数，进行 trim 和 urldecode 处理
         $this->_param = input('','','trim,urldecode');
     }
 
+    /**
+     * 默认入口方法 (空实现)
+     */
     public function index()
     {
 
     }
 
+    /**
+     * ============================================================
+     * 视频数据提供API (Video Data Provide API)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 为外部采集系统提供视频数据，是最常用的数据提供接口
+     * 支持 XML 和 JSON 两种输出格式
+     *
+     * 【访问路径】
+     * GET api.php/provide/vod
+     *
+     * 【请求参数】
+     * ┌────────────────┬──────────────────────────────────────────┐
+     * │ 参数名          │ 说明                                      │
+     * ├────────────────┼──────────────────────────────────────────┤
+     * │ ac             │ 动作: list(基础列表)/videolist(详细)/detail │
+     * │ at             │ 格式: xml/json (默认json)                  │
+     * │ t              │ 分类ID                                     │
+     * │ pg             │ 页码                                       │
+     * │ pagesize       │ 每页数量 (最大100)                          │
+     * │ h              │ 时间范围(小时)，如 h=24                      │
+     * │ ids            │ 指定视频ID列表                              │
+     * │ wd             │ 搜索关键词                                  │
+     * │ year           │ 年份筛选: 单年(2023)或范围(2020-2023)        │
+     * │ isend          │ 是否完结: 0/1                               │
+     * │ from           │ 播放源筛选                                  │
+     * │ sort_direction │ 排序方向: asc/desc                          │
+     * └────────────────┴──────────────────────────────────────────┘
+     *
+     * 【ac参数区别】
+     * - list: 基础字段 (vod_id, vod_name, type_id, vod_remarks等)
+     * - videolist/detail: 全部字段 (包含播放地址、简介等)
+     *
+     * 【输出字段】(list模式)
+     * vod_id, vod_name, type_id, type_name, vod_en, vod_time,
+     * vod_remarks, vod_play_from
+     *
+     * 【XML输出示例】
+     * <video>
+     *   <id>1</id>
+     *   <name><![CDATA[视频名]]></name>
+     *   <type>电影</type>
+     *   <dt>m3u8,mp4</dt>
+     *   <note><![CDATA[备注]]></note>
+     * </video>
+     *
+     * 【特性】
+     * - 支持播放量统计 (detail模式+配置开启)
+     * - 支持多播放源过滤
+     * - 支持年份范围筛选
+     *
+     * @return void 直接输出 XML 或 JSON
+     */
     public function vod()
     {
         if($GLOBALS['config']['api']['vod']['status'] != 1){
@@ -152,6 +306,27 @@ class Provide extends Base
         exit;
     }
 
+    /**
+     * ============================================================
+     * 处理播放地址数据 (用于XML输出)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 将视频播放地址按播放源分组处理
+     * 根据配置的播放源过滤，返回符合条件的播放数据
+     *
+     * 【数据格式】
+     * 输入: vod_play_url = "url1$$$url2$$$url3"
+     *       vod_play_from = "m3u8$$$mp4$$$yun"
+     * 输出: XML格式 <dd flag="m3u8"><![CDATA[url1]]></dd>
+     *       或 JSON格式 ['m3u8' => 'url1', ...]
+     *
+     * @param string $urls   播放地址，用$$$ 分隔
+     * @param string $froms  播放源名称，用$$$ 分隔
+     * @param string $from   过滤的播放源，为空则返回全部
+     * @param string $flag   输出格式: xml/json
+     * @return string|array XML字符串或JSON数组
+     */
     public function vod_url_deal($urls,$froms,$from,$flag)
     {
         $res_xml = '';
@@ -176,6 +351,25 @@ class Provide extends Base
         return $flag=='xml' ? $res_xml : $res_json;
     }
 
+    /**
+     * ============================================================
+     * 视频数据JSON格式化
+     * ============================================================
+     *
+     * 【功能说明】
+     * 将视频查询结果转换为JSON友好格式
+     * 处理分类名称、时间格式、图片URL、播放源过滤等
+     *
+     * 【处理内容】
+     * 1. 填充分类名称 (type_name)
+     * 2. 时间戳转日期字符串
+     * 3. 图片URL补全协议和域名
+     * 4. 播放源过滤 (根据 from 配置)
+     * 5. 附加分类列表 (非detail模式)
+     *
+     * @param array $res 视频查询结果
+     * @return array 格式化后的结果
+     */
     public function vod_json($res)
     {
         $type_list = model('Type')->getCache('type_list');
@@ -263,6 +457,28 @@ class Provide extends Base
         return $res;
     }
 
+    /**
+     * ============================================================
+     * 视频数据XML格式化 (苹果CMS标准格式)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 将视频查询结果转换为苹果CMS标准XML格式
+     * 兼容主流采集软件
+     *
+     * 【XML结构】
+     * <rss version="5.1">
+     *   <list page="" pagecount="" pagesize="" recordcount="">
+     *     <video>...</video>
+     *   </list>
+     *   <class>
+     *     <ty id="">分类名</ty>
+     *   </class>
+     * </rss>
+     *
+     * @param array $res 视频查询结果
+     * @return string XML字符串
+     */
     public function vod_xml($res)
     {
         $xml = '<?xml version="1.0" encoding="utf-8"?>';
@@ -340,6 +556,25 @@ class Provide extends Base
         return $xml;
     }
 
+    /**
+     * ============================================================
+     * 文章数据提供API (Article Data Provide API)
+     * ============================================================
+     *
+     * 【功能说明】
+     * 为外部系统提供文章数据，仅支持JSON格式输出
+     *
+     * 【访问路径】
+     * GET api.php/provide/art
+     *
+     * 【配置位置】
+     * application/extra/maccms.php → api.art
+     *
+     * 【type_mid】
+     * 文章分类: type_mid = 2
+     *
+     * @return void 直接输出 JSON
+     */
     public function art()
     {
         if($GLOBALS['config']['api']['art']['status'] != 1){
@@ -452,6 +687,11 @@ class Provide extends Base
         exit;
     }
 
+    /**
+     * 演员数据提供API
+     * 配置: api.actor, type_mid = 8
+     * @return void 直接输出 JSON
+     */
     public function actor()
     {
         if($GLOBALS['config']['api']['actor']['status'] != 1){
@@ -564,6 +804,11 @@ class Provide extends Base
         exit;
     }
 
+    /**
+     * 角色数据提供API
+     * 配置: api.role, 关联视频表获取豆瓣ID和导演信息
+     * @return void 直接输出 JSON
+     */
     public function role()
     {
         if($GLOBALS['config']['api']['role']['status'] != 1){
@@ -664,6 +909,12 @@ class Provide extends Base
         exit;
     }
 
+    /**
+     * 漫画数据提供API
+     * 配置: api.manga, type_mid = 12
+     * 支持 XML/JSON 双格式输出
+     * @return void 直接输出 XML 或 JSON
+     */
     public function manga()
     {
         if($GLOBALS['config']['api']['manga']['status'] != 1){
